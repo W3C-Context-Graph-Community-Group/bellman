@@ -1,5 +1,11 @@
-const express = require('express');
-const path = require('path');
+import 'dotenv/config';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import llmService from './routes/api/llm_service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,8 +23,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.get('/', (req, res) => {
-  res.render('index', { title: 'Bellman' });
+  res.sendFile(path.join(__dirname, 'public', 'resizers.html'));
 });
+
+// API routes
+app.use('/api/llm', llmService);
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

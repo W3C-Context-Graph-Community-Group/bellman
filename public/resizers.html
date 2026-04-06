@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resizable Panels</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/resizers.css">
+</head>
+<body class="resizer-page">
+  <div class="resizer-container">
+    <div class="panel" data-panel="left">
+      <h2 style="padding: 1rem;">Left Panel</h2>
+    </div>
+    <div class="resizer" data-resizer="left"></div>
+    <div class="panel" data-panel="center">
+      <h2 style="padding: 1rem;">Center Panel</h2>
+    </div>
+    <div class="resizer" data-resizer="right"></div>
+    <div class="panel" data-panel="right">
+      <h2 style="padding: 1rem;">Right Panel</h2>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ResizerManager } from '/js/resizers/ResizerManager.js';
+    const container = document.querySelector('.resizer-container');
+    new ResizerManager(container);
+  </script>
+</body>
+</html>
