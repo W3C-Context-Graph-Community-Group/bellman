@@ -4,9 +4,37 @@ body.resizer-page {
   overflow: hidden;
 }
 
+.top-header {
+  height: 50px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.header-link {
+  margin-left: auto;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #333;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  background: #f0f0f0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.header-link:hover {
+  background: #e0e0e0;
+  color: #000;
+}
+
 .resizer-container {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 50px);
 }
 
 .panel {
@@ -15,7 +43,10 @@ body.resizer-page {
   min-width: 100px;
 }
 
-.panel[data-panel="left"],
+.panel[data-panel="left"] {
+  flex-basis: 450px;
+}
+
 .panel[data-panel="right"] {
   flex-basis: 25%;
 }

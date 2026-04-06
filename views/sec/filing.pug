@@ -1,0 +1,6 @@
+extends ../layout
+
+block content
+  h1= companyName
+  p #[strong Type:] #{filingType} &mdash; #[strong Period:] #{period} &mdash; #[strong Filed:] #{filingDate} &mdash; #[strong Accession:] #{accession}
+  pre(style="white-space: pre-wrap; word-wrap: break-word;")= text

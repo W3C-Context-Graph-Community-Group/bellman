@@ -6,26 +6,35 @@
   <title>Resizable Panels</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/resizers.css">
+  <link rel="stylesheet" href="/css/left/chat.css">
+  <link rel="stylesheet" href="/css/center/log.css">
+  <link rel="stylesheet" href="/css/right/placeholder.css">
 </head>
 <body class="resizer-page">
+  <header class="top-header">
+    <span class="header-title">W3C Context Graph Community Group | Test</span>
+    <a href="/sec" class="header-link">SEC</a>
+  </header>
   <div class="resizer-container">
-    <div class="panel" data-panel="left">
-      <h2 style="padding: 1rem;">Left Panel</h2>
-    </div>
+    <div class="panel" data-panel="left"></div>
     <div class="resizer" data-resizer="left"></div>
-    <div class="panel" data-panel="center">
-      <h2 style="padding: 1rem;">Center Panel</h2>
-    </div>
+    <div class="panel" data-panel="center"></div>
     <div class="resizer" data-resizer="right"></div>
-    <div class="panel" data-panel="right">
-      <h2 style="padding: 1rem;">Right Panel</h2>
-    </div>
+    <div class="panel" data-panel="right"></div>
   </div>
 
   <script type="module">
     import { ResizerManager } from '/js/resizers/ResizerManager.js';
+    import { ChatPanel } from '/js/left/ChatPanel.js';
+    import { LogPanel } from '/js/center/LogPanel.js';
+    import { PlaceholderPanel } from '/js/right/PlaceholderPanel.js';
+
     const container = document.querySelector('.resizer-container');
     new ResizerManager(container);
+
+    new ChatPanel(document.querySelector('[data-panel="left"]'));
+    new LogPanel(document.querySelector('[data-panel="center"]'));
+    new PlaceholderPanel(document.querySelector('[data-panel="right"]'));
   </script>
 </body>
 </html>

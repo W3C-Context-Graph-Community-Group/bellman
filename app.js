@@ -2,7 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import Ajv from 'ajv';
 import llmService from './routes/api/llm_service.js';
+import secRoutes from './routes/sec.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,8 +28,34 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'resizers.html'));
 });
 
+// SEC filings browser
+app.use('/sec', secRoutes);
+
 // API routes
 app.use('/api/llm', llmService);
+
+app.get('/api/prompt', (req, res) => {
+  res.sendFile(path.join(__dirname, 'data', 'prompt.txt'));
+});
+
+const ajv = new Ajv({ allErrors: true });
+const validateSchema = ajv.compile({
+  type: 'object',
+  required: ['decision_trace', 'reasoning_trace'],
+  properties: {
+    decision_trace: { type: 'object' },
+    reasoning_trace: { type: 'object' }
+  },
+  additionalProperties: false
+});
+
+app.post('/api/validate', (req, res) => {
+  const valid = validateSchema(req.body);
+  res.json({
+    valid,
+    errors: valid ? null : validateSchema.errors
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

@@ -11,9 +11,12 @@ Show your work in two parts:
 
 Do not meta-explain. Do not comment on the simulation itself. Just give me your best simulation.
 
-USER MESSAGE:
+REQUIREMENT:
 
-Please execute this order:
+You MUST ONLY return in the following format as it will have to pass a json schema validator. There can be no quotes, no wrapping in md or text of any kind, pure valid .json only:
 
-date,amount,location,instrument,direction,order_type,account
-4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471
+{
+  decision_trace: {...},
+  reasoning_trace: {...}
+}
+

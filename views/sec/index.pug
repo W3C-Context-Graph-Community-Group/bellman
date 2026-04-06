@@ -1,0 +1,23 @@
+extends ../layout
+
+block content
+  h1 SEC Filings
+  table
+    thead
+      tr
+        th Ticker
+        th Company
+        th Type
+        th Period
+        th Filing Date
+        th Accession
+    tbody
+      each f in filings
+        tr
+          td= f.ticker.toUpperCase()
+          td= f.company_name
+          td= f.filing_type
+          td= f.period.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+          td= f.filing_date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+          td
+            a(href=`/sec/filing/${f.ticker}/${f.filing_type}/${f.accession_number.replace(/-/g, '')}` target="_blank")= f.accession_number

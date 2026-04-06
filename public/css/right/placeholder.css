@@ -1,0 +1,20 @@
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.placeholder-content h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.placeholder-content p {
+  font-size: 0.875rem;
+}
