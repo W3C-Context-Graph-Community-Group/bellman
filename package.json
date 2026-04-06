@@ -1,0 +1,20 @@
+{
+  "name": "bellman",
+  "version": "1.0.0",
+  "description": "Bellman - Express Node.js application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "scss": "sass --watch public/scss:public/css"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "nodemon": "^3.1.14",
+    "pug": "^3.0.4",
+    "sass": "^1.99.0"
+  }
+}

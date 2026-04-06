@@ -1,0 +1,1 @@
+// Vanilla JS entry point
