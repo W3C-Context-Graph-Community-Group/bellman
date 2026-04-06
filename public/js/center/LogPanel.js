@@ -9,16 +9,58 @@ export class LogPanel {
 
   _buildDOM() {
     this.panel.innerHTML = `
-      <div class="log-header"><h2>Traces</h2></div>
+      <div id="centerColumnHeader" class="log-header">
+        <h2>Traces</h2>
+        <div class="log-header-controls">
+          <span class="log-timer">00:00.000</span>
+        </div>
+      </div>
       <div class="log-entries"></div>
     `;
     this.entriesList = this.panel.querySelector('.log-entries');
+    this.timerEl = this.panel.querySelector('.log-timer');
+    this._timerId = null;
+    this._timerStart = null;
   }
 
   _subscribe() {
+    eventBus.on('message:sent', () => this._startTimer());
     eventBus.on('message:sent', (data) => this._renderSent(data));
+    eventBus.on('message:error', (data) => this._renderError(data));
+    eventBus.on('message:stats', () => this._stopTimer());
     eventBus.on('message:stats', (data) => this._renderStats(data));
     eventBus.on('message:received', (data) => this._renderReceived(data));
+    eventBus.on('message:tool_call', (data) => this._renderToolCall(data));
+    eventBus.on('message:tool_result', (data) => this._renderToolResult(data));
+  }
+
+  _startTimer() {
+    this._stopTimer();
+    this._timerStart = Date.now();
+    this.timerEl.classList.add('log-timer--active');
+    this._tick();
+    this._timerId = setInterval(() => this._tick(), 47);
+  }
+
+  _stopTimer() {
+    if (this._timerId) {
+      clearInterval(this._timerId);
+      this._timerId = null;
+    }
+    this._tick();
+    this.timerEl.classList.remove('log-timer--active');
+  }
+
+  _tick() {
+    if (!this._timerStart) return;
+    const ms = Date.now() - this._timerStart;
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    const millis = ms % 1000;
+    this.timerEl.textContent =
+      String(mins).padStart(2, '0') + ':' +
+      String(secs).padStart(2, '0') + '.' +
+      String(millis).padStart(3, '0');
   }
 
   _renderSent({ text, timestamp }) {
@@ -31,6 +73,24 @@ export class LogPanel {
       </div>
       <div class="log-entry-body">
         <p class="log-text">${this._escapeHTML(text)}</p>
+      </div>
+    `;
+    this._append(entry);
+  }
+
+  _renderError({ attempt, type, detail, raw, timestamp }) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry log-entry--error';
+    entry.innerHTML = `
+      <div class="log-entry-header">
+        <span class="log-badge log-badge--error">ERROR</span>
+        <span class="log-badge log-badge--attempt">Attempt ${attempt}</span>
+        <span class="log-timestamp">${this._formatTime(timestamp)}</span>
+      </div>
+      <div class="log-entry-body">
+        <p class="log-error-type"><strong>${this._escapeHTML(type)}</strong></p>
+        <p class="log-error-detail">${this._escapeHTML(detail)}</p>
+        ${raw ? `<details class="log-error-raw"><summary>Raw response</summary><pre class="log-json">${this._escapeHTML(raw)}</pre></details>` : ''}
       </div>
     `;
     this._append(entry);
@@ -60,6 +120,38 @@ export class LogPanel {
     this._append(entry);
   }
 
+  _renderToolCall({ tool, input, timestamp }) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <div class="log-entry-header">
+        <span class="log-badge log-badge--tool">TOOL CALL</span>
+        <span class="log-timestamp">${this._formatTime(timestamp)}</span>
+      </div>
+      <div class="log-entry-body">
+        <p class="log-text"><strong>${this._escapeHTML(tool)}</strong></p>
+        <pre class="log-json">${this._escapeHTML(JSON.stringify(input, null, 2))}</pre>
+      </div>
+    `;
+    this._append(entry);
+  }
+
+  _renderToolResult({ tool, result, timestamp }) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <div class="log-entry-header">
+        <span class="log-badge log-badge--tool-result">TOOL RESULT</span>
+        <span class="log-timestamp">${this._formatTime(timestamp)}</span>
+      </div>
+      <div class="log-entry-body">
+        <p class="log-text"><strong>${this._escapeHTML(tool)}</strong></p>
+        <pre class="log-json">${this._escapeHTML(result)}</pre>
+      </div>
+    `;
+    this._append(entry);
+  }
+
   _renderReceived({ raw, parsed, timestamp, error }) {
     const entry = document.createElement('div');
     entry.className = 'log-entry';
@@ -67,30 +159,14 @@ export class LogPanel {
     let bodyHTML = '';
 
     if (error && !parsed) {
-      bodyHTML += `<div class="log-error-banner">Parse error: ${this._escapeHTML(error)}</div>`;
+      bodyHTML += `<div class="log-error-banner">Error: ${this._escapeHTML(error)}</div>`;
       if (raw) {
         bodyHTML += `<pre class="log-json">${this._escapeHTML(raw)}</pre>`;
       }
     } else if (parsed) {
-      if (parsed.decision_trace) {
-        bodyHTML += `
-          <h4 class="log-section-title">decision_trace</h4>
-          <pre class="log-json">${this._escapeHTML(JSON.stringify(parsed.decision_trace, null, 2))}</pre>
-        `;
-      }
-      if (parsed.reasoning_trace) {
-        bodyHTML += `
-          <h4 class="log-section-title">reasoning_trace</h4>
-          <pre class="log-json">${this._escapeHTML(JSON.stringify(parsed.reasoning_trace, null, 2))}</pre>
-        `;
-      }
-      if (!parsed.decision_trace && !parsed.reasoning_trace) {
-        bodyHTML += `<pre class="log-json">${this._escapeHTML(JSON.stringify(parsed, null, 2))}</pre>`;
-      }
-    } else {
-      if (raw) {
-        bodyHTML += `<pre class="log-json">${this._escapeHTML(raw)}</pre>`;
-      }
+      bodyHTML += `<pre class="log-json">${this._escapeHTML(JSON.stringify(parsed, null, 2))}</pre>`;
+    } else if (raw) {
+      bodyHTML += `<pre class="log-json">${this._escapeHTML(raw)}</pre>`;
     }
 
     entry.innerHTML = `

@@ -3,18 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resizable Panels</title>
+  <title>W3C Context Graph Community Group | Test</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/resizers.css">
   <link rel="stylesheet" href="/css/left/chat.css">
   <link rel="stylesheet" href="/css/center/log.css">
-  <link rel="stylesheet" href="/css/right/placeholder.css">
+  <link rel="stylesheet" href="/css/right/bellman.css">
 </head>
 <body class="resizer-page">
   <header class="top-header">
     <span class="header-title">W3C Context Graph Community Group | Test</span>
-    <a href="/sec" class="header-link">SEC</a>
+    <select id="modeSelect" class="header-mode-select">
+      <option value="trading">Trading</option>
+      <option value="sec">SEC RAG</option>
+    </select>
+    <a href="/sec" class="header-link">SEC Filings Data</a>
+    <button id="docsBtn" class="header-docs-btn">DOCS</button>
   </header>
+
+  <div id="docsModal" class="docs-modal hidden">
+    <div class="docs-modal-content">
+      <button id="docsModalClose" class="docs-modal-close">&times;</button>
+      <div id="docsModalBody" class="docs-modal-body"></div>
+    </div>
+  </div>
   <div class="resizer-container">
     <div class="panel" data-panel="left"></div>
     <div class="resizer" data-resizer="left"></div>
@@ -23,18 +35,54 @@
     <div class="panel" data-panel="right"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    (function() {
+      const docsBtn = document.getElementById('docsBtn');
+      const modal = document.getElementById('docsModal');
+      const closeBtn = document.getElementById('docsModalClose');
+      const body = document.getElementById('docsModalBody');
+
+      docsBtn.addEventListener('click', async () => {
+        modal.classList.remove('hidden');
+        if (!body.innerHTML) {
+          const res = await fetch('/api/docs/null-uncertainty');
+          const md = await res.text();
+          body.innerHTML = marked.parse(md);
+        }
+      });
+
+      closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+      });
+    })();
+  </script>
   <script type="module">
     import { ResizerManager } from '/js/resizers/ResizerManager.js';
     import { ChatPanel } from '/js/left/ChatPanel.js';
     import { LogPanel } from '/js/center/LogPanel.js';
-    import { PlaceholderPanel } from '/js/right/PlaceholderPanel.js';
+    import { BellmanPanel } from '/js/right/BellmanPanel.js';
+    import tradingMode from '/js/modes/trading.js';
+    import secMode from '/js/modes/sec.js';
 
+    const modes = { trading: tradingMode, sec: secMode };
     const container = document.querySelector('.resizer-container');
-    new ResizerManager(container);
+    const modeSelect = document.getElementById('modeSelect');
+    const leftPanel = document.querySelector('[data-panel="left"]');
+    const centerPanel = document.querySelector('[data-panel="center"]');
 
-    new ChatPanel(document.querySelector('[data-panel="left"]'));
-    new LogPanel(document.querySelector('[data-panel="center"]'));
-    new PlaceholderPanel(document.querySelector('[data-panel="right"]'));
+    new ResizerManager(container);
+    const bellmanPanel = new BellmanPanel(document.querySelector('[data-panel="right"]'));
+
+    let chatPanel = new ChatPanel(leftPanel, modes[modeSelect.value]);
+    let logPanel = new LogPanel(centerPanel);
+
+    modeSelect.addEventListener('change', () => {
+      chatPanel = new ChatPanel(leftPanel, modes[modeSelect.value]);
+      logPanel = new LogPanel(centerPanel);
+      bellmanPanel.reset();
+    });
   </script>
 </body>
 </html>

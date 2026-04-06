@@ -1,0 +1,345 @@
+/* ================================================================== */
+/*  Bellman Panel                                                     */
+/* ================================================================== */
+
+.panel[data-panel="right"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---- Header ---- */
+
+.bellman-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.bellman-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Tabs ---- */
+
+.bellman-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.bellman-tab {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.bellman-tab:hover {
+  background: #f3f4f6;
+}
+
+.bellman-tab--active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+.bellman-tab--active:hover {
+  background: #2563eb;
+}
+
+/* ---- Layer containers ---- */
+
+.bellman-layer {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bellman-layer--active {
+  display: flex;
+}
+
+.bellman-layer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bellman-layer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bellman-layer::-webkit-scrollbar-thumb {
+  background: #c4c8cf;
+  border-radius: 3px;
+}
+
+.bellman-layer::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ---- Section headers (Layer 2) ---- */
+
+.bellman-section h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.bellman-section + .bellman-section {
+  margin-top: 0.75rem;
+}
+
+.bellman-inherited-label {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+/* ---- Field row ---- */
+
+.bellman-field {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bellman-field-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bellman-field-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.bellman-field-value {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.bellman-field-entropy {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  margin-left: auto;
+}
+
+/* ---- Bar ---- */
+
+.bellman-bar {
+  display: flex;
+  height: 28px;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.bellman-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: #fff;
+  background: #93c5fd;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 0.25rem;
+  transition: width 0.4s ease, opacity 0.3s ease, background 0.3s ease;
+}
+
+.bellman-segment + .bellman-segment {
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ---- Segment states after grading ---- */
+
+.bellman-segment--chosen {
+  opacity: 1;
+}
+
+.bellman-segment--collapsed {
+  width: 0 !important;
+  opacity: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+}
+
+/* Grade A → green */
+.bellman-field--graded-A .bellman-segment--chosen {
+  background: #22c55e;
+}
+
+/* Grade S → orange */
+.bellman-field--graded-S .bellman-segment--chosen {
+  background: #f59e0b;
+}
+
+/* Grade N → red */
+.bellman-field--graded-N .bellman-segment--chosen {
+  background: #ef4444;
+}
+
+/* Closed fields → single green bar */
+.bellman-field--closed .bellman-segment {
+  background: #22c55e;
+}
+
+/* Inherited fields (Layer 2) → flat gray */
+.bellman-field--inherited {
+  opacity: 0.65;
+}
+
+.bellman-field--inherited .bellman-segment {
+  background: #d1d5db;
+  color: #6b7280;
+}
+
+/* ---- Scoring buttons row ---- */
+
+.bellman-scoring {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.bellman-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  background: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.bellman-btn:hover {
+  background: #f3f4f6;
+}
+
+.bellman-btn--selected-A {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}
+
+.bellman-btn--selected-S {
+  background: #f59e0b;
+  color: #fff;
+  border-color: #f59e0b;
+}
+
+.bellman-btn--selected-N {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.bellman-grade-label {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  min-height: 0.85rem;
+}
+
+/* ---- Closure Property (Layer 2) ---- */
+
+.bellman-killer {
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+}
+
+.bellman-killer p {
+  font-size: 0.75rem;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.bellman-killer .bellman-status {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.bellman-killer .bellman-status--ok {
+  color: #16a34a;
+}
+
+/* ---- Scoreboard ---- */
+
+.bellman-scoreboard {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  background: #f9fafb;
+}
+
+.bellman-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+  gap: 0.15rem;
+}
+
+.bellman-stat + .bellman-stat {
+  border-left: 1px solid #e5e7eb;
+}
+
+.bellman-stat-label {
+  font-size: 0.6rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.bellman-stat-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.bellman-stat-value--danger {
+  color: #ef4444;
+}
+
+.bellman-stat-value--success {
+  color: #22c55e;
+}

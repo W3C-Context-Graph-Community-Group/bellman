@@ -1,13 +1,9 @@
 import eventBus from '../events/EventBus.js';
 
-const DEFAULT_MESSAGE = `Please execute this order:
-
-date,amount,location,instrument,direction,order_type,account
-4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471`;
-
 export class ChatPanel {
-  constructor(panel) {
+  constructor(panel, mode) {
     this.panel = panel;
+    this.mode = mode;
     this.messages = [];
     this._sending = false;
     this._buildDOM();
@@ -16,24 +12,28 @@ export class ChatPanel {
   }
 
   _buildDOM() {
+    const modelOptionsHTML = this.mode.modelOptions.map(
+      o => `<option value="${o.value}">${o.label}</option>`
+    ).join('');
+
     this.panel.id = 'leftColumn';
     this.panel.innerHTML = `
       <div id="leftColumnHeader" class="chat-header">
-        <h2>Agent</h2>
+        <h2>${this.mode.title}</h2>
         <div class="chat-header-controls">
           <select class="chat-model-select">
-            <option value="claude-sonnet-4-5-20250929">Sonnet 4.5</option>
+            ${modelOptionsHTML}
           </select>
           <span class="chat-status-light">
             <span class="status-dot"></span>
             <span class="status-label">Checking</span>
           </span>
-          <button class="chat-prompt-btn" title="View System Prompt">Prompt</button>
+          <button class="chat-prompt-btn" title="View System Prompt">System Prompt</button>
         </div>
       </div>
       <div class="chat-messages"></div>
       <div class="chat-input-area">
-        <textarea id="leftColumnChatTextareaInput" class="chat-textarea" rows="1">${DEFAULT_MESSAGE}</textarea>
+        <textarea id="leftColumnChatTextareaInput" class="chat-textarea" rows="1">${this.mode.defaultMessage}</textarea>
       </div>
       <div class="chat-send-row">
         <button class="chat-send-btn">Send</button>
@@ -87,12 +87,8 @@ export class ChatPanel {
 
   async _checkStatus() {
     try {
-      const res = await fetch('/api/prompt');
-      if (res.ok) {
-        this._setStatus(true);
-      } else {
-        this._setStatus(false);
-      }
+      const res = await fetch(this.mode.promptEndpoint);
+      this._setStatus(res.ok);
     } catch {
       this._setStatus(false);
     }
@@ -105,7 +101,7 @@ export class ChatPanel {
   }
 
   async _fetchSystemPrompt() {
-    const res = await fetch('/api/prompt');
+    const res = await fetch(this.mode.promptEndpoint);
     if (!res.ok) throw new Error(`Failed to load prompt: HTTP ${res.status}`);
     return res.text();
   }
@@ -125,6 +121,25 @@ export class ChatPanel {
     this.modalOverlay.hidden = true;
   }
 
+  async _callLLM(systemPrompt) {
+    const body = {
+      model: this.modelSelect.value,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: this.messages
+    };
+    if (this.mode.tools) {
+      body.tools = this.mode.tools;
+    }
+    console.log(`[ChatPanel] _callLLM: POST /api/llm/anthropic (${JSON.stringify(body).length} bytes)`);
+    const res = await fetch('/api/llm/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return res;
+  }
+
   async _handleSend() {
     const text = this.textarea.value.trim();
     if (!text || this._sending) return;
@@ -140,132 +155,225 @@ export class ChatPanel {
 
     const MAX_RETRIES = 3;
     let validationErrors = 0;
+    let raw = '';
+    let parsed = null;
+    let fatalError = null;
 
-    try {
-      const systemPrompt = await this._fetchSystemPrompt();
-      let raw = '';
-      let parsed = null;
-      let lastValidationErrors = null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      raw = '';
+      parsed = null;
 
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        const res = await fetch('/api/llm/anthropic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: this.modelSelect.value,
-            max_tokens: 4096,
-            system: systemPrompt,
-            messages: this.messages
-          })
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        raw = data.content?.[0]?.text ?? '';
-
-        // Strip markdown code fences if present
-        const cleaned = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-
-        // Try JSON parse
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch (e) {
-          parsed = null;
-          if (attempt < MAX_RETRIES) {
-            validationErrors++;
-            this.messages.push({ role: 'assistant', content: raw });
-            this.messages.push({
-              role: 'user',
-              content: `Your response was not valid JSON. Parse error: ${e.message}. You MUST return ONLY raw JSON with no markdown, no backticks, no text — just a valid JSON object with "decision_trace" and "reasoning_trace" keys.`
-            });
-            this._appendBubble('error', `Retry ${attempt + 1}: invalid JSON — ${e.message}`);
-            continue;
-          }
-          break;
-        }
-
-        // Validate schema via backend
-        const valRes = await fetch('/api/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(parsed)
-        });
-        const valData = await valRes.json();
-
-        if (valData.valid) {
-          lastValidationErrors = null;
-          break;
-        }
-
-        // Schema validation failed
-        lastValidationErrors = valData.errors;
+      let systemPrompt;
+      console.log(`[ChatPanel] Attempt ${attempt + 1}: fetching system prompt from ${this.mode.promptEndpoint}`);
+      try {
+        systemPrompt = await this._fetchSystemPrompt();
+      } catch (e) {
         validationErrors++;
+        fatalError = `Prompt fetch failed: ${e.message}`;
+        eventBus.emit('message:error', {
+          attempt: attempt + 1, type: 'Network', detail: fatalError, raw: '', timestamp: new Date().toISOString()
+        });
+        this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
+        this._setStatus(false);
+        break;
+      }
 
-        if (attempt < MAX_RETRIES) {
-          const errorSummary = valData.errors.map(e =>
-            `${e.instancePath || '/'}: ${e.message}`
-          ).join('; ');
-          this.messages.push({ role: 'assistant', content: raw });
-          this.messages.push({
-            role: 'user',
-            content: `Your JSON failed schema validation: ${errorSummary}. You MUST return ONLY a JSON object with exactly two keys: "decision_trace" (object) and "reasoning_trace" (object). No other keys, no wrapping text.`
-          });
-          this._appendBubble('error', `Retry ${attempt + 1}: schema validation failed — ${errorSummary}`);
-          parsed = null;
+      let res;
+      console.log(`[ChatPanel] Attempt ${attempt + 1}: sending to LLM (model=${this.modelSelect.value}, messages=${this.messages.length}, tools=${this.mode.tools?.length ?? 0})`);
+      const llmStart = Date.now();
+      const waitingBubble = this._appendBubble('assistant', '...');
+      let dots = 3;
+      const waitingInterval = setInterval(() => {
+        dots = (dots % 3) + 1;
+        waitingBubble.textContent = '.'.repeat(dots);
+      }, 500);
+      try {
+        res = await this._callLLM(systemPrompt);
+      } catch (e) {
+        clearInterval(waitingInterval);
+        waitingBubble.remove();
+        console.error(`[ChatPanel] LLM fetch threw after ${Date.now() - llmStart}ms:`, e.message);
+        validationErrors++;
+        fatalError = `LLM request failed: ${e.message}`;
+        eventBus.emit('message:error', {
+          attempt: attempt + 1, type: 'Network', detail: fatalError, raw: '', timestamp: new Date().toISOString()
+        });
+        this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
+        this._setStatus(false);
+        break;
+      }
+      clearInterval(waitingInterval);
+      waitingBubble.remove();
+      console.log(`[ChatPanel] LLM responded HTTP ${res.status} after ${Date.now() - llmStart}ms`);
+
+      if (!res.ok) {
+        validationErrors++;
+        fatalError = `HTTP ${res.status}`;
+        eventBus.emit('message:error', {
+          attempt: attempt + 1, type: 'HTTP error', detail: fatalError, raw: '', timestamp: new Date().toISOString()
+        });
+        this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
+        this._setStatus(false);
+        break;
+      }
+
+      let data = await res.json();
+      console.log(`[ChatPanel] LLM stop_reason=${data.stop_reason}, content_blocks=${data.content?.length}`);
+
+      // Tool-use loop: if the model wants to call tools, handle them
+      if (data.stop_reason === 'tool_use' && this.mode.handleToolCall) {
+        data = await this._handleToolUseLoop(data, systemPrompt);
+        if (data._fatalError) {
+          fatalError = data._fatalError;
+          validationErrors++;
+          break;
         }
       }
 
-      const elapsedMs = Date.now() - sentAt;
-      const totalChars = this.messages.reduce((sum, m) => sum + m.content.length, 0) + raw.length;
+      // Delegate to mode's handleResponse
+      const result = await this.mode.handleResponse(data, this.messages);
+      raw = result.raw;
+      parsed = result.parsed;
 
-      eventBus.emit('message:stats', {
-        elapsedMs,
-        totalChars,
-        estimatedTokens: Math.ceil(totalChars / 4),
-        validationErrors,
-        timestamp: new Date().toISOString()
-      });
-
-      this.messages.push({ role: 'assistant', content: raw });
-      this._appendBubble('assistant', raw);
-      this._setStatus(true);
-
-      let error = null;
-      if (!parsed) {
-        error = 'Failed to produce valid JSON after retries';
-      } else if (lastValidationErrors) {
-        error = lastValidationErrors.map(e => `${e.instancePath || '/'}: ${e.message}`).join('; ');
+      if (!result.error) {
+        fatalError = null;
+        this._setStatus(true);
+        break;
       }
 
-      eventBus.emit('message:received', {
+      // Mode reported an error
+      validationErrors++;
+      eventBus.emit('message:error', {
+        attempt: attempt + 1,
+        type: result.retry ? 'Validation' : 'Fatal',
+        detail: result.error,
         raw,
-        parsed,
-        timestamp: new Date().toISOString(),
-        ...(error && { error })
-      });
-    } catch (err) {
-      this._appendBubble('error', err.message);
-      this._setStatus(false);
-
-      const elapsedMs = Date.now() - sentAt;
-      eventBus.emit('message:stats', {
-        elapsedMs,
-        totalChars: this.messages.reduce((sum, m) => sum + m.content.length, 0),
-        estimatedTokens: Math.ceil(this.messages.reduce((sum, m) => sum + m.content.length, 0) / 4),
-        validationErrors,
         timestamp: new Date().toISOString()
       });
 
-      eventBus.emit('message:received', {
-        raw: '',
-        parsed: null,
-        timestamp: new Date().toISOString(),
-        error: err.message
-      });
-    } finally {
-      this._setSending(false);
+      if (result.retry && attempt < MAX_RETRIES && result.retryMessage) {
+        this.messages.push({ role: 'assistant', content: raw });
+        this.messages.push({ role: 'user', content: result.retryMessage });
+        this._appendBubble('error', `Retry ${attempt + 1}: ${result.error}`);
+        continue;
+      }
+
+      if (!result.retry) {
+        fatalError = result.error;
+      }
+      break;
     }
+
+    const elapsedMs = Date.now() - sentAt;
+    const totalChars = this.messages.reduce((sum, m) => {
+      if (typeof m.content === 'string') return sum + m.content.length;
+      return sum;
+    }, 0) + raw.length;
+
+    eventBus.emit('message:stats', {
+      elapsedMs,
+      totalChars,
+      estimatedTokens: Math.ceil(totalChars / 4),
+      validationErrors,
+      timestamp: new Date().toISOString()
+    });
+
+    if (raw) {
+      this.messages.push({ role: 'assistant', content: raw });
+    }
+    if (parsed || (!fatalError && raw)) {
+      this._appendBubble('assistant', 'Executed');
+    } else {
+      this._appendBubble('error', fatalError || 'No response');
+    }
+
+    let error = null;
+    if (fatalError) {
+      error = fatalError;
+    } else if (this.mode.tools && !parsed && raw) {
+      // For tool-use modes, raw text without parsed is fine (not an error)
+      error = null;
+    } else if (!parsed && !raw) {
+      error = 'No response received';
+    }
+
+    eventBus.emit('message:received', {
+      raw,
+      parsed,
+      timestamp: new Date().toISOString(),
+      ...(error && { error })
+    });
+
+    this._setSending(false);
+  }
+
+  async _handleToolUseLoop(data, systemPrompt) {
+    const MAX_TOOL_ROUNDS = 5;
+    console.log(`[ChatPanel] Entering tool-use loop`);
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
+      if (toolUseBlocks.length === 0) break;
+      console.log(`[ChatPanel] Tool round ${round + 1}: ${toolUseBlocks.length} tool call(s)`);
+
+      // Add assistant message with the full content (text + tool_use blocks)
+      this.messages.push({ role: 'assistant', content: data.content });
+
+      const toolResults = [];
+      for (const block of toolUseBlocks) {
+        console.log(`[ChatPanel] Calling tool: ${block.name}`, block.input);
+        this._appendBubble('assistant', `Calling tool: ${block.name}(${JSON.stringify(block.input)})`);
+        eventBus.emit('message:tool_call', {
+          tool: block.name,
+          input: block.input,
+          timestamp: new Date().toISOString()
+        });
+
+        let result;
+        const toolStart = Date.now();
+        try {
+          result = await this.mode.handleToolCall(block.name, block.input);
+        } catch (e) {
+          result = JSON.stringify({ error: e.message });
+        }
+        console.log(`[ChatPanel] Tool ${block.name} returned after ${Date.now() - toolStart}ms (${result.length} chars)`);
+
+        eventBus.emit('message:tool_result', {
+          tool: block.name,
+          result: result.substring(0, 500),
+          timestamp: new Date().toISOString()
+        });
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: result
+        });
+      }
+
+      this.messages.push({ role: 'user', content: toolResults });
+
+      // Call LLM again with tool results
+      let res;
+      try {
+        res = await this._callLLM(systemPrompt);
+      } catch (e) {
+        return { _fatalError: `LLM request failed during tool loop: ${e.message}` };
+      }
+
+      if (!res.ok) {
+        return { _fatalError: `HTTP ${res.status} during tool loop` };
+      }
+
+      data = await res.json();
+
+      // If the model is done (no more tool calls), return the final response
+      if (data.stop_reason !== 'tool_use') {
+        return data;
+      }
+    }
+
+    return data;
   }
 
   _setSending(val) {
@@ -280,5 +388,6 @@ export class ChatPanel {
     bubble.textContent = text;
     this.messageList.appendChild(bubble);
     this.messageList.scrollTop = this.messageList.scrollHeight;
+    return bubble;
   }
 }

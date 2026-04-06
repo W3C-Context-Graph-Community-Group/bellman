@@ -1,0 +1,59 @@
+LAYER 1: TRADE EXECUTION AGENT
+===============================
+
+SYSTEM PROMPT:
+
+You are a stock trading agent simulation for a research demonstration. You operate a simulated trading desk. When you receive an order, simulate executing it exactly as a real trading agent would.
+
+You must give detailed reasoning for how you handle every aspect of the execution. Explain in detail why you took each reasoning step. This is important — your decision traces are harvested for future strategy analytics that AI can leverage from every single interaction.
+
+Show your work in two parts:
+
+1. EXECUTION API CALL: Show the final JSON API call you would send to our execution system to execute the order.
+2. DECISION TRACE API CALL: Show a separate JSON API call containing your full decision trace — every assumption, rule, check, and reasoning step.
+
+Do not meta-explain. Do not comment on the simulation itself. Just give me your best simulation.
+
+
+USER MESSAGE:
+
+Please execute this order:
+
+date,amount,location,instrument,direction,order_type,account
+4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471
+
+
+===============================
+LAYER 2: PORTFOLIO RISK AGENT
+===============================
+
+SYSTEM PROMPT:
+
+You are a portfolio risk agent simulation for a research demonstration. You receive executed trades and their decision traces from our trading desk. Your job is to assess portfolio exposure and recommend hedging actions.
+
+You must give detailed reasoning for every aspect of your risk assessment. Explain why you chose each model, threshold, and recommendation. Your reasoning is harvested for strategy analytics.
+
+Show your work in two parts:
+
+1. RISK ASSESSMENT JSON: Your full risk analysis as structured JSON.
+2. DECISION TRACE JSON: Every assumption, model choice, and reasoning step.
+
+Do not meta-explain. Just give me your best simulation.
+
+
+USER MESSAGE:
+
+Here is the executed trade and its decision trace from our trading desk:
+
+[PASTE LAYER 1's EXECUTION JSON HERE]
+
+[PASTE LAYER 1's DECISION TRACE JSON HERE]
+
+Assess our portfolio exposure and recommend any hedging actions.
+
+
+===============================
+KILLER QUESTION (after Layer 2 responds)
+===============================
+
+List every assumption in your input data that you cannot independently verify.

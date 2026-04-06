@@ -38,13 +38,35 @@ app.get('/api/prompt', (req, res) => {
   res.sendFile(path.join(__dirname, 'data', 'prompt.txt'));
 });
 
+app.get('/api/prompt/sec', (req, res) => {
+  res.sendFile(path.join(__dirname, 'data', 'prompt-sec.txt'));
+});
+
+app.get('/api/docs/null-uncertainty', (req, res) => {
+  res.sendFile(path.join(__dirname, 'data', 'docs', 'null_uncertainty_guide.md'));
+});
+
 const ajv = new Ajv({ allErrors: true });
 const validateSchema = ajv.compile({
   type: 'object',
   required: ['decision_trace', 'reasoning_trace'],
   properties: {
     decision_trace: { type: 'object' },
-    reasoning_trace: { type: 'object' }
+    reasoning_trace: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['assumption', 'reasoning', 'judgement_criteria', 'alternatives_considered'],
+        properties: {
+          assumption: { type: 'string' },
+          reasoning: { type: 'string' },
+          judgement_criteria: { type: 'string' },
+          alternatives_considered: { type: 'string' }
+        }
+      },
+      minItems: 3,
+      maxItems: 3
+    }
   },
   additionalProperties: false
 });

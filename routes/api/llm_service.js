@@ -66,6 +66,9 @@ router.post('/anthropic', async (req, res) => {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' });
 
+  const t0 = Date.now();
+  console.log(`[LLM] ${new Date().toISOString()} → POST anthropic model=${req.body.model} msgs=${req.body.messages?.length} tools=${req.body.tools?.length ?? 0}`);
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -77,8 +80,11 @@ router.post('/anthropic', async (req, res) => {
       body: JSON.stringify(req.body)
     });
     const data = await response.json();
+    console.log(`[LLM] ${new Date().toISOString()} ← ${response.status} stop=${data.stop_reason} blocks=${data.content?.length} (${Date.now() - t0}ms)`);
+    console.log(`[LLM] RAW RESPONSE:\n${JSON.stringify(data, null, 2)}`);
     res.status(response.status).json(data);
   } catch (err) {
+    console.error(`[LLM] ${new Date().toISOString()} ✗ Error after ${Date.now() - t0}ms: ${err.message}`);
     res.status(502).json({ error: 'Anthropic request failed', detail: err.message });
   }
 });
