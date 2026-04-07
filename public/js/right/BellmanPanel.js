@@ -18,6 +18,7 @@ export class BellmanPanel {
     this.failureModes = null;
     this.layer2HasResponse = false;
     this.layer2DynamicFields = null;
+    this.recommendations = new Map(); // fieldKey → 'A'|'D'|'U'|'H' from classifier
 
     this._buildDOM();
     this._subscribe();
@@ -132,6 +133,14 @@ export class BellmanPanel {
   _subscribe() {
     eventBus.on('message:sent', () => this.reset());
     eventBus.on('layer2:response', (data) => this._handleLayer2Response(data));
+    eventBus.on('bellman:classified', (data) => this._handleClassified(data));
+  }
+
+  _handleClassified({ classifications }) {
+    if (!classifications) return;
+    this.recommendations = new Map(Object.entries(classifications));
+    this._renderLayer1Fields();
+    this._renderScoreboard();
   }
 
   _handleLayer2Response({ parsed }) {
@@ -190,7 +199,8 @@ export class BellmanPanel {
     this.fields.forEach((f) => {
       this.scores.set(f.key, null);
     });
-    LAYER2_FIELDS.forEach((f) => {
+    const l2Fields = this.layer2DynamicFields || LAYER2_FIELDS;
+    l2Fields.forEach((f) => {
       this.layer2Scores.set(f.key, null);
     });
   }
@@ -199,6 +209,9 @@ export class BellmanPanel {
     this.activeLayer = 1;
     this.scores = new Map();
     this.layer2Scores = new Map();
+    this.recommendations = new Map();
+    this.layer2HasResponse = false;
+    this.layer2DynamicFields = null;
     this._initScores();
 
     // Reset tab visuals
@@ -285,9 +298,18 @@ export class BellmanPanel {
     const ownSection = document.createElement('div');
     ownSection.className = 'bellman-section';
     ownSection.innerHTML = `<h3>Layer 2 Own Assumptions</h3>`;
-    LAYER2_FIELDS.forEach((field) => {
-      this._renderFieldRow(field, this.layer2Scores, ownSection);
-    });
+
+    if (!this.layer2HasResponse) {
+      const placeholder = document.createElement('p');
+      placeholder.className = 'bellman-inherited-label';
+      placeholder.textContent = 'Awaiting Layer 2 agent response\u2026';
+      ownSection.appendChild(placeholder);
+    } else {
+      const fields = this.layer2DynamicFields || LAYER2_FIELDS;
+      fields.forEach((field) => {
+        this._renderFieldRow(field, this.layer2Scores, ownSection);
+      });
+    }
     this._layer2El.appendChild(ownSection);
 
     // Closure property
@@ -366,11 +388,16 @@ export class BellmanPanel {
 
     const categories = this.failureModes?.scoring_categories;
     const gradeKeys = categories ? Object.keys(categories) : Object.keys(GRADES);
+    const recommended = !grade ? this.recommendations.get(field.key) : null;
 
     gradeKeys.forEach((g) => {
       const btn = document.createElement('button');
       btn.className = 'bellman-btn';
-      if (grade === g) btn.classList.add(`bellman-btn--selected-${g}`);
+      if (grade === g) {
+        btn.classList.add(`bellman-btn--selected-${g}`);
+      } else if (recommended === g) {
+        btn.classList.add(`bellman-btn--recommended-${g}`);
+      }
       btn.dataset.grade = g;
       btn.title = categories?.[g]?.label || GRADES[g]?.title || g;
       btn.textContent = categories?.[g]?.label || GRADES[g]?.label || g;
@@ -385,7 +412,11 @@ export class BellmanPanel {
     // Grade label
     const label = document.createElement('div');
     label.className = 'bellman-grade-label';
-    if (grade) label.textContent = GRADES[grade]?.fullLabel || grade;
+    if (grade) {
+      label.textContent = GRADES[grade]?.fullLabel || grade;
+    } else if (recommended) {
+      label.textContent = `${GRADES[recommended]?.fullLabel || recommended} (recommended)`;
+    }
     row.appendChild(label);
 
     container.appendChild(row);
@@ -470,7 +501,8 @@ export class BellmanPanel {
       hallucinatedEl.className = 'bellman-stat-value' +
         (hallucinated > 0 ? ' bellman-stat-value--danger' : '');
     } else {
-      const ownEntropy = this._computeEntropy(this.layer2Scores, LAYER2_FIELDS);
+      const l2Fields = this.layer2DynamicFields || LAYER2_FIELDS;
+      const ownEntropy = this._computeEntropy(this.layer2Scores, l2Fields);
       const inherited = this.totalEntropy;
       const total = ownEntropy + inherited;
       const rotations = this._countGrades(this.layer2Scores, 'A');
@@ -507,7 +539,7 @@ export class BellmanPanel {
   _updateClosure() {
     if (!this._closureEl) return;
     const scored = this._countScored(this.layer2Scores);
-    const total = LAYER2_FIELDS.length;
+    const total = (this.layer2DynamicFields || LAYER2_FIELDS).length;
     const inherited = this.totalEntropy;
     const broken = inherited > 0;
 

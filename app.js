@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import Ajv from 'ajv';
 import llmService from './routes/api/llm_service.js';
 import semanticSuperposition from './routes/api/semantic_superposition.js';
+import bellmanClassifier from './routes/api/bellman_classifier.js';
 import secRoutes from './routes/sec.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +42,7 @@ app.use('/sec', secRoutes);
 // API routes
 app.use('/api/llm', llmService);
 app.use('/api/semantic_superposition', semanticSuperposition);
+app.use('/api/bellman', bellmanClassifier);
 
 app.get('/api/failure-modes', (req, res) => {
   res.json(failureModes);

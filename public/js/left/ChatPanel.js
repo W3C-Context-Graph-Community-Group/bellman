@@ -5,7 +5,7 @@ export class ChatPanel {
     this.panel = panel;
     this.mode = mode;
     this.messages = [];
-    this.activeLayer = 1;
+    this.activeLayer = 0;
     this._sending = false;
     this._buildDOM();
     this._bindEvents();
@@ -30,6 +30,7 @@ export class ChatPanel {
             <span class="status-label">Checking</span>
           </span>
           <select class="chat-prompt-select" title="Select System Prompt Layer">
+            <option value="" disabled selected>Select System Prompt</option>
             <option value="/api/prompt">Layer 1 System Prompt</option>
             <option value="/api/prompt2">Layer 2 System Prompt</option>
           </select>
@@ -76,7 +77,7 @@ export class ChatPanel {
     });
     this.textarea.addEventListener('input', () => this._autoResize());
     this.promptSelect.addEventListener('change', () => {
-      this.activeLayer = this.promptSelect.selectedIndex + 1;
+      this.activeLayer = this.promptSelect.selectedIndex; // 0=placeholder, 1=Layer1, 2=Layer2
       this.messages = [];
       this.messageList.innerHTML = '';
       this._openPromptModal();
@@ -97,6 +98,7 @@ export class ChatPanel {
   }
 
   async _checkStatus() {
+    if (!this.promptSelect.value) return;
     try {
       const res = await fetch(this.promptSelect.value);
       this._setStatus(res.ok);
@@ -157,6 +159,10 @@ export class ChatPanel {
   async _handleSend() {
     const text = this.textarea.value.trim();
     if (!text || this._sending) return;
+    if (!this.promptSelect.value) {
+      this._appendBubble('error', 'Please select a system prompt layer first.');
+      return;
+    }
 
     this.textarea.value = '';
     this._autoResize();
