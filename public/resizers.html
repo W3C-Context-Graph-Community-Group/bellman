@@ -13,20 +13,16 @@
 <body class="resizer-page">
   <header class="top-header">
     <span class="header-title">W3C Context Graph Community Group | Test</span>
-    <select id="modeSelect" class="header-mode-select">
-      <option value="trading">Trading</option>
-      <option value="sec">SEC RAG</option>
-    </select>
-    <a href="/sec" class="header-link">SEC Filings Data</a>
-    <button id="docsBtn" class="header-docs-btn">DOCS</button>
+    <div class="header-actions">
+      <select id="modeSelect" class="header-mode-select">
+        <option value="trading">Trading</option>
+        <option value="sec">SEC RAG</option>
+      </select>
+      <a href="/sec" class="header-action header-link" target="_blank">SEC Filings Data</a>
+      <button id="docsBtn" class="header-action header-docs-btn">Docs</button>
+    </div>
   </header>
 
-  <div id="docsModal" class="docs-modal hidden">
-    <div class="docs-modal-content">
-      <button id="docsModalClose" class="docs-modal-close">&times;</button>
-      <div id="docsModalBody" class="docs-modal-body"></div>
-    </div>
-  </div>
   <div class="resizer-container">
     <div class="panel" data-panel="left"></div>
     <div class="resizer" data-resizer="left"></div>
@@ -36,35 +32,19 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script>
-    (function() {
-      const docsBtn = document.getElementById('docsBtn');
-      const modal = document.getElementById('docsModal');
-      const closeBtn = document.getElementById('docsModalClose');
-      const body = document.getElementById('docsModalBody');
-
-      docsBtn.addEventListener('click', async () => {
-        modal.classList.remove('hidden');
-        if (!body.innerHTML) {
-          const res = await fetch('/api/docs/null-uncertainty');
-          const md = await res.text();
-          body.innerHTML = marked.parse(md);
-        }
-      });
-
-      closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-      });
-    })();
-  </script>
   <script type="module">
     import { ResizerManager } from '/js/resizers/ResizerManager.js';
     import { ChatPanel } from '/js/left/ChatPanel.js';
     import { LogPanel } from '/js/center/LogPanel.js';
     import { BellmanPanel } from '/js/right/BellmanPanel.js';
+    import { modalManager } from '/js/ModalManager.js';
     import tradingMode from '/js/modes/trading.js';
     import secMode from '/js/modes/sec.js';
+
+    // DOCS button → ModalManager
+    document.getElementById('docsBtn').addEventListener('click', () => {
+      modalManager.openMarkdown('/api/docs/null-uncertainty');
+    });
 
     const modes = { trading: tradingMode, sec: secMode };
     const container = document.querySelector('.resizer-container');

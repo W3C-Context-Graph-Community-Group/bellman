@@ -21,6 +21,7 @@ export class LogPanel {
     this.timerEl = this.panel.querySelector('.log-timer');
     this._timerId = null;
     this._timerStart = null;
+    this._nextId = 0;
   }
 
   _subscribe() {
@@ -75,7 +76,7 @@ export class LogPanel {
         <p class="log-text">${this._escapeHTML(text)}</p>
       </div>
     `;
-    this._append(entry);
+    this._append(entry, 'sent');
   }
 
   _renderError({ attempt, type, detail, raw, timestamp }) {
@@ -93,7 +94,7 @@ export class LogPanel {
         ${raw ? `<details class="log-error-raw"><summary>Raw response</summary><pre class="log-json">${this._escapeHTML(raw)}</pre></details>` : ''}
       </div>
     `;
-    this._append(entry);
+    this._append(entry, 'error');
   }
 
   _renderStats({ elapsedMs, totalChars, estimatedTokens, validationErrors, timestamp }) {
@@ -117,7 +118,7 @@ export class LogPanel {
         <span class="log-stat${errClass}"><strong>Validation errors:</strong> ${validationErrors}</span>
       </div>
     `;
-    this._append(entry);
+    this._append(entry, 'stats');
   }
 
   _renderToolCall({ tool, input, timestamp }) {
@@ -133,7 +134,7 @@ export class LogPanel {
         <pre class="log-json">${this._escapeHTML(JSON.stringify(input, null, 2))}</pre>
       </div>
     `;
-    this._append(entry);
+    this._append(entry, 'tool_call');
   }
 
   _renderToolResult({ tool, result, timestamp }) {
@@ -149,7 +150,7 @@ export class LogPanel {
         <pre class="log-json">${this._escapeHTML(result)}</pre>
       </div>
     `;
-    this._append(entry);
+    this._append(entry, 'tool_result');
   }
 
   _renderReceived({ raw, parsed, timestamp, error }) {
@@ -176,10 +177,12 @@ export class LogPanel {
       </div>
       <div class="log-entry-body">${bodyHTML}</div>
     `;
-    this._append(entry);
+    this._append(entry, 'received');
   }
 
-  _append(entry) {
+  _append(entry, traceType) {
+    entry.dataset.trace_type = traceType;
+    entry.dataset.id = this._nextId++;
     this.entriesList.appendChild(entry);
     this.entriesList.scrollTop = this.entriesList.scrollHeight;
   }

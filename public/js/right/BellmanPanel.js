@@ -1,4 +1,5 @@
 import eventBus from '../events/EventBus.js';
+import { modalManager } from '../ModalManager.js';
 import {
   ANSWER_KEY,
   LAYER2_FIELDS,
@@ -26,6 +27,7 @@ export class BellmanPanel {
       <div class="bellman-panel">
         <div class="bellman-header">
           <h2>Bellman</h2>
+          <button class="bellman-info-btn" title="Legend">i</button>
           <div class="bellman-tabs">
             <button class="bellman-tab bellman-tab--active" data-layer="1">Layer 1</button>
             <button class="bellman-tab" data-layer="2">Layer 2</button>
@@ -58,6 +60,11 @@ export class BellmanPanel {
     // Tab switching
     this.panel.querySelectorAll('.bellman-tab').forEach((tab) => {
       tab.addEventListener('click', () => this._switchLayer(Number(tab.dataset.layer)));
+    });
+
+    // Info button → legend modal
+    this.panel.querySelector('.bellman-info-btn').addEventListener('click', () => {
+      modalManager.open(this._buildLegendHTML());
     });
 
     this._initScores();
@@ -171,13 +178,9 @@ export class BellmanPanel {
         <span class="bellman-field-value">${field.value}</span>
         <span class="bellman-field-entropy">${field.entropy.toFixed(2)} bits</span>
       </div>
-      <div class="bellman-bar">
-        ${field.interpretations
-          .map(
-            (interp) =>
-              `<div class="bellman-segment" style="width:${(100 / field.omega).toFixed(2)}%">${interp}</div>`
-          )
-          .join('')}
+      <div class="bellman-superposition">
+        <div class="bellman-superposition-header">Semantic Superposition:</div>
+        <div class="bellman-superposition-code">"${field.value}": ${JSON.stringify(field.interpretations)}</div>
       </div>
     `;
     return row;
@@ -208,40 +211,21 @@ export class BellmanPanel {
     `;
     row.appendChild(info);
 
-    // Bar
-    const bar = document.createElement('div');
-    bar.className = 'bellman-bar';
+    // Semantic Superposition
+    const superpos = document.createElement('div');
+    superpos.className = 'bellman-superposition';
 
-    if (!isOpen) {
-      // Closed: single segment, full width
-      const seg = document.createElement('div');
-      seg.className = 'bellman-segment';
-      seg.style.width = '100%';
-      seg.textContent = field.interpretations[0];
-      bar.appendChild(seg);
-    } else {
-      field.interpretations.forEach((interp, idx) => {
-        const seg = document.createElement('div');
-        seg.className = 'bellman-segment';
-        seg.dataset.idx = idx;
-        seg.textContent = interp;
+    const header = document.createElement('div');
+    header.className = 'bellman-superposition-header';
+    header.textContent = 'Semantic Superposition:';
+    superpos.appendChild(header);
 
-        if (grade) {
-          // When graded, first segment is "chosen", rest collapse
-          if (idx === 0) {
-            seg.classList.add('bellman-segment--chosen');
-            seg.style.width = '100%';
-          } else {
-            seg.classList.add('bellman-segment--collapsed');
-          }
-        } else {
-          seg.style.width = `${(100 / field.omega).toFixed(2)}%`;
-        }
+    const code = document.createElement('div');
+    code.className = 'bellman-superposition-code';
+    code.textContent = `"${field.value}": ${JSON.stringify(field.interpretations)}`;
+    superpos.appendChild(code);
 
-        bar.appendChild(seg);
-      });
-    }
-    row.appendChild(bar);
+    row.appendChild(superpos);
 
     // Scoring buttons (open fields only)
     if (isOpen) {
@@ -254,7 +238,7 @@ export class BellmanPanel {
         if (grade === g) btn.classList.add(`bellman-btn--selected-${g}`);
         btn.dataset.grade = g;
         btn.title = GRADES[g].title;
-        btn.textContent = g;
+        btn.textContent = GRADES[g].label;
         btn.addEventListener('click', () =>
           this._handleScore(field.key, g, scoreMap)
         );
@@ -391,6 +375,52 @@ export class BellmanPanel {
       <span class="${broken ? 'bellman-status' : 'bellman-status bellman-status--ok'}">
         Bellman: ${broken ? 'BROKEN at serialization boundary' : 'Optimal sub-structure preserved'}
       </span>
+    `;
+  }
+
+  /* ================================================================ */
+  /*  Legend                                                          */
+  /* ================================================================ */
+
+  _buildLegendHTML() {
+    return `
+      <h1>Bellman Legend</h1>
+
+      <h2>Scoring Grades</h2>
+      <table>
+        <thead>
+          <tr><th>Grade</th><th>Meaning</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${GRADES.A.color};vertical-align:middle;margin-right:6px"></span><strong>Asked</strong></td>
+            <td>${GRADES.A.title}</td>
+            <td>The agent requested clarification before proceeding. This is a <em>rotation</em> — a cross-boundary measurement. It costs something, but it closes the boundary.</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${GRADES.S.color};vertical-align:middle;margin-right:6px"></span><strong>Surfaced</strong></td>
+            <td>${GRADES.S.title}</td>
+            <td>The agent mentioned the ambiguity but then assumed a default and kept going. It noticed the problem but didn't pay the cost to resolve it.</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${GRADES.N.color};vertical-align:middle;margin-right:6px"></span><strong>Null</strong></td>
+            <td>${GRADES.N.title}</td>
+            <td>The agent silently assumed. No mention of ambiguity. No question. No signal that a question existed. This is <em>null uncertainty</em> — the variable doesn't exist in the agent's reasoning.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Scoreboard</h2>
+      <table>
+        <thead>
+          <tr><th>Metric</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Entropy</strong></td><td>Remaining information-theoretic uncertainty (in bits). Only <em>Asked</em> grades reduce entropy — Surfaced and Null leave it intact.</td></tr>
+          <tr><td><strong>Rotations</strong></td><td>Number of fields graded <em>Asked</em>. These are the cross-boundary measurements that close ambiguity.</td></tr>
+          <tr><td><strong>Nulls</strong></td><td>Number of fields graded <em>Null</em>. These represent invisible assumptions the agent never surfaced.</td></tr>
+        </tbody>
+      </table>
     `;
   }
 
