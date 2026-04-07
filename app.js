@@ -50,6 +50,10 @@ app.get('/api/prompt', (req, res) => {
   res.sendFile(path.join(__dirname, 'data', 'prompt.txt'));
 });
 
+app.get('/api/prompt2', (req, res) => {
+  res.sendFile(path.join(__dirname, 'data', 'prompt2.txt'));
+});
+
 app.get('/api/prompt/sec', (req, res) => {
   res.sendFile(path.join(__dirname, 'data', 'prompt-sec.txt'));
 });

@@ -16,6 +16,8 @@ export class BellmanPanel {
     this.totalEntropy = 0;
     this.minimumRotations = 0;
     this.failureModes = null;
+    this.layer2HasResponse = false;
+    this.layer2DynamicFields = null;
 
     this._buildDOM();
     this._subscribe();
@@ -129,6 +131,55 @@ export class BellmanPanel {
 
   _subscribe() {
     eventBus.on('message:sent', () => this.reset());
+    eventBus.on('layer2:response', (data) => this._handleLayer2Response(data));
+  }
+
+  _handleLayer2Response({ parsed }) {
+    if (!parsed) return;
+
+    const trace = parsed.decision_trace;
+    if (!Array.isArray(trace) || trace.length === 0) return;
+
+    // Build dynamic fields from the agent's actual assumptions
+    this.layer2DynamicFields = trace.map((item) => {
+      const key = (item.assumption || 'unknown')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+      // Try to match to a known LAYER2_FIELDS entry for interpretations
+      const known = LAYER2_FIELDS.find((f) =>
+        key.includes(f.key) ||
+        f.key.includes(key) ||
+        (item.assumption || '').toLowerCase().includes(f.name.toLowerCase())
+      );
+
+      if (known) {
+        return {
+          ...known,
+          value: item.value || known.value,
+        };
+      }
+
+      return {
+        key,
+        name: item.assumption || 'unknown',
+        value: item.value || 'unspecified',
+        omega: 1,
+        entropy: 0,
+        open: true,
+        interpretations: [item.value || 'unspecified'],
+      };
+    });
+
+    this.layer2HasResponse = true;
+
+    // Re-init Layer 2 scores for the dynamic fields
+    this.layer2Scores = new Map();
+    this.layer2DynamicFields.forEach((f) => {
+      this.layer2Scores.set(f.key, null);
+    });
+
+    this._renderLayer2();
+    this._renderScoreboard();
   }
 
   /* ================================================================ */

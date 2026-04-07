@@ -15,9 +15,25 @@ export default {
 
   handleToolCall: null,
 
-  async handleResponse(data, messages) {
+  async handleResponse(data, messages, layer = 1) {
     const raw = data.content?.[0]?.text ?? '';
     const cleaned = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+    if (layer === 2) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        return {
+          raw,
+          parsed: null,
+          error: `JSON parse error: ${e.message}`,
+          retry: true,
+          retryMessage: `Your response was not valid JSON. Parse error: ${e.message}. You MUST return ONLY raw JSON with no markdown, no backticks — just a valid JSON object with "risk_assessment" and "decision_trace" keys.`
+        };
+      }
+      return { raw, parsed, error: null, retry: false };
+    }
 
     let parsed = null;
     try {

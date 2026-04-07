@@ -5,6 +5,7 @@ export class ChatPanel {
     this.panel = panel;
     this.mode = mode;
     this.messages = [];
+    this.activeLayer = 1;
     this._sending = false;
     this._buildDOM();
     this._bindEvents();
@@ -28,7 +29,10 @@ export class ChatPanel {
             <span class="status-dot"></span>
             <span class="status-label">Checking</span>
           </span>
-          <button class="chat-prompt-btn" title="View System Prompt">System Prompt</button>
+          <select class="chat-prompt-select" title="Select System Prompt Layer">
+            <option value="/api/prompt">Layer 1 System Prompt</option>
+            <option value="/api/prompt2">Layer 2 System Prompt</option>
+          </select>
         </div>
       </div>
       <div class="chat-messages"></div>
@@ -42,7 +46,7 @@ export class ChatPanel {
       <div class="prompt-modal-overlay" hidden>
         <div class="prompt-modal">
           <div class="prompt-modal-header">
-            <h3>System Prompt</h3>
+            <h3 class="prompt-modal-title">System Prompt</h3>
             <button class="prompt-modal-close">&times;</button>
           </div>
           <pre class="prompt-modal-body">Loading…</pre>
@@ -55,8 +59,9 @@ export class ChatPanel {
     this.modelSelect = this.panel.querySelector('.chat-model-select');
     this.statusDot = this.panel.querySelector('.status-dot');
     this.statusLabel = this.panel.querySelector('.status-label');
-    this.promptBtn = this.panel.querySelector('.chat-prompt-btn');
+    this.promptSelect = this.panel.querySelector('.chat-prompt-select');
     this.modalOverlay = this.panel.querySelector('.prompt-modal-overlay');
+    this.modalTitle = this.panel.querySelector('.prompt-modal-title');
     this.modalBody = this.panel.querySelector('.prompt-modal-body');
     this.modalClose = this.panel.querySelector('.prompt-modal-close');
   }
@@ -70,7 +75,13 @@ export class ChatPanel {
       }
     });
     this.textarea.addEventListener('input', () => this._autoResize());
-    this.promptBtn.addEventListener('click', () => this._openPromptModal());
+    this.promptSelect.addEventListener('change', () => {
+      this.activeLayer = this.promptSelect.selectedIndex + 1;
+      this.messages = [];
+      this.messageList.innerHTML = '';
+      this._openPromptModal();
+      this._checkStatus();
+    });
     this.modalClose.addEventListener('click', () => this._closePromptModal());
     this.modalOverlay.addEventListener('click', (e) => {
       if (e.target === this.modalOverlay) this._closePromptModal();
@@ -87,7 +98,7 @@ export class ChatPanel {
 
   async _checkStatus() {
     try {
-      const res = await fetch(this.mode.promptEndpoint);
+      const res = await fetch(this.promptSelect.value);
       this._setStatus(res.ok);
     } catch {
       this._setStatus(false);
@@ -101,12 +112,15 @@ export class ChatPanel {
   }
 
   async _fetchSystemPrompt() {
-    const res = await fetch(this.mode.promptEndpoint);
+    const endpoint = this.promptSelect.value;
+    const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`Failed to load prompt: HTTP ${res.status}`);
     return res.text();
   }
 
   async _openPromptModal() {
+    const label = this.promptSelect.options[this.promptSelect.selectedIndex].text;
+    this.modalTitle.textContent = label;
     this.modalOverlay.hidden = false;
     this.modalBody.textContent = 'Loading…';
     try {
@@ -164,7 +178,7 @@ export class ChatPanel {
       parsed = null;
 
       let systemPrompt;
-      console.log(`[ChatPanel] Attempt ${attempt + 1}: fetching system prompt from ${this.mode.promptEndpoint}`);
+      console.log(`[ChatPanel] Attempt ${attempt + 1}: fetching system prompt from ${this.promptSelect.value}`);
       try {
         systemPrompt = await this._fetchSystemPrompt();
       } catch (e) {
@@ -231,7 +245,7 @@ export class ChatPanel {
       }
 
       // Delegate to mode's handleResponse
-      const result = await this.mode.handleResponse(data, this.messages);
+      const result = await this.mode.handleResponse(data, this.messages, this.activeLayer);
       raw = result.raw;
       parsed = result.parsed;
 
@@ -303,6 +317,10 @@ export class ChatPanel {
       timestamp: new Date().toISOString(),
       ...(error && { error })
     });
+
+    if (this.activeLayer === 2 && parsed && !error) {
+      eventBus.emit('layer2:response', { raw, parsed });
+    }
 
     this._setSending(false);
   }
