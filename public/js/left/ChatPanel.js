@@ -11,6 +11,17 @@ export class ChatPanel {
     this.promptManager = new PromptManager();
     this._buildDOM();
     this._bindEvents();
+
+    // Read URL on init to sync dropdown with current layer
+    const urlMatch = window.location.pathname.match(/\/layer\/(\d+)/);
+    const initLayer = urlMatch ? Number(urlMatch[1]) : 0;
+    if (initLayer > 0 && PROMPT_CONFIG[initLayer]) {
+      this.promptSelect.value = String(initLayer);
+      const config = this.promptManager.selectLayer(initLayer);
+      this.textarea.value = config.user_prompt;
+      this._autoResize();
+      this.viewPromptLink.classList.remove('chat-view-prompt-link--disabled');
+    }
   }
 
   _buildDOM() {
@@ -101,6 +112,31 @@ export class ChatPanel {
       if (e.target === this.modalOverlay) this._closePromptModal();
     });
     this._autoResize();
+
+    // Sync when Bellman tabs change layer
+    eventBus.on('bellman:layerChanged', ({ layer }) => {
+      const current = parseInt(this.promptSelect.value, 10) || 0;
+      if (current === layer) return;
+
+      if (layer === 0) {
+        this.promptSelect.selectedIndex = 0;
+        this.promptManager.reset();
+        this.textarea.value = '';
+        this._autoResize();
+        this.messages = [];
+        this.messageList.innerHTML = '';
+        this.viewPromptLink.classList.add('chat-view-prompt-link--disabled');
+        return;
+      }
+
+      this.promptSelect.value = String(layer);
+      const config = this.promptManager.selectLayer(layer);
+      this.textarea.value = config.user_prompt;
+      this._autoResize();
+      this.messages = [];
+      this.messageList.innerHTML = '';
+      this.viewPromptLink.classList.remove('chat-view-prompt-link--disabled');
+    });
   }
 
   _autoResize() {

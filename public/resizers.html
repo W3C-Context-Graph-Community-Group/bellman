@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/css/left/chat.css">
   <link rel="stylesheet" href="/css/center/log.css">
   <link rel="stylesheet" href="/css/right/bellman.css">
+  <link rel="stylesheet" href="/css/meta-analysis.css">
 </head>
 <body class="resizer-page">
   <header class="top-header">
@@ -21,6 +22,12 @@
       <a href="/sec" class="header-action header-link" target="_blank">SEC Filings Data</a>
       <button id="intentMapBtn" class="header-action header-docs-btn">Intent Map</button>
       <button id="docsBtn" class="header-action header-docs-btn">Docs</button>
+      <button id="metaAnalysisBtn" class="header-action header-docs-btn">Meta-Analysis</button>
+      <div id="viewButtonContainer">
+        <a href="/services/log/viewer" class="header-action header-link" target="_blank">Log Viewer</a>
+        <a href="/interpretation-space/" class="header-action header-link" target="_blank">Interpretation Space</a>
+        <a href="/report" class="header-action header-link" target="_blank">Audit Report</a>
+      </div>
     </div>
   </header>
 
@@ -40,6 +47,8 @@
     import { BellmanPanel } from '/js/right/BellmanPanel.js';
     import { BellmanClassifier } from '/js/right/BellmanClassifier.js';
     import { modalManager } from '/js/ModalManager.js';
+    import { LogCapture } from '/js/LogCapture.js';
+    import { MetaAnalysisModal } from '/js/MetaAnalysisModal.js';
     import tradingMode from '/js/modes/trading.js';
     import secMode from '/js/modes/sec.js';
 
@@ -83,6 +92,15 @@
 
     let chatPanel = new ChatPanel(leftPanel, modes[modeSelect.value]);
     let logPanel = new LogPanel(centerPanel);
+
+    // Transparent pipeline logging (fire-and-forget)
+    const logCapture = new LogCapture();
+
+    // Meta-Analysis modal (Layer 5)
+    const metaModal = new MetaAnalysisModal(logCapture);
+    document.getElementById('metaAnalysisBtn').addEventListener('click', () => {
+      metaModal.open();
+    });
 
     modeSelect.addEventListener('change', () => {
       chatPanel = new ChatPanel(leftPanel, modes[modeSelect.value]);

@@ -1,0 +1,175 @@
+/* Audit Report — standalone page styles */
+
+:root {
+  --report-bg: #f8fafc;
+  --report-surface: #ffffff;
+  --report-border: #e2e8f0;
+  --report-text: #1e293b;
+  --report-muted: #64748b;
+  --report-pass: #16a34a;
+  --report-fail: #dc2626;
+  --report-warn: #d97706;
+  --report-skip: #94a3b8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--report-bg);
+  color: var(--report-text);
+  padding: 2rem;
+  line-height: 1.5;
+}
+
+.report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--report-border);
+}
+
+.report-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.report-header .report-subtitle {
+  color: var(--report-muted);
+  font-size: 0.875rem;
+}
+
+/* Summary bar */
+.report-summary {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1rem 1.5rem;
+  background: var(--report-surface);
+  border-radius: 8px;
+  border: 1px solid var(--report-border);
+}
+
+.report-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.report-summary-item .count {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.report-summary-item.pass .count { color: var(--report-pass); }
+.report-summary-item.fail .count { color: var(--report-fail); }
+.report-summary-item.warn .count { color: var(--report-warn); }
+.report-summary-item.skip .count { color: var(--report-skip); }
+
+/* Rules table */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--report-surface);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--report-border);
+}
+
+.report-table th,
+.report-table td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--report-border);
+}
+
+.report-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--report-muted);
+}
+
+.report-table tr:last-child td {
+  border-bottom: none;
+}
+
+.report-table .rule-name {
+  font-weight: 600;
+}
+
+.report-table .paper-ref {
+  color: var(--report-muted);
+  font-size: 0.8rem;
+}
+
+.report-table .check-detail {
+  color: var(--report-muted);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-badge.pass {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--report-pass);
+}
+
+.status-badge.fail {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--report-fail);
+}
+
+.status-badge.warn {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--report-warn);
+}
+
+.status-badge.skip {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--report-skip);
+}
+
+/* Live indicator */
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--report-skip);
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.live-dot.connected {
+  background: var(--report-pass);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* No-scores message */
+.report-no-scores {
+  text-align: center;
+  padding: 2rem;
+  color: var(--report-muted);
+  font-style: italic;
+}

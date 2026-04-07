@@ -7,7 +7,8 @@
 \usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{verbatim}
-
+\usepackage{graphicx}
+\usepackage{float}
 \geometry{margin=1in}
 
 \newtheorem{theorem}{Theorem}
@@ -29,47 +30,44 @@
 
 \begin{abstract}
 The Bellman equation is the foundation of sequential decision-making in AI, 
-economics, and control theory. It has one precondition that, to my knowledge, has never been explicitly formalized: that the decision-maker can observe the full state 
-relevant to its decision. 
+economics, and control theory. It has one precondition that has never been 
+explicitly formalized: that the decision-maker can observe the full state 
+relevant to its decision.
 
-This paper is not about the equation producing the 
-wrong answer. It is about identifying the structural conditions under which 
-the state space the equation operates over becomes fictitious --- rendering 
-the equation's operation meaningless before a single value is computed.
+We identify a candidate bound on boundary uncertainty that is to 
+multi-agent decision systems what channel capacity is to communication 
+systems: a quantity derivable before any agent runs that determines 
+whether reliable decision-making across the boundary is achievable. 
+Whether this bound is tight --- whether $H_{\text{total}}$ bits of 
+provenance is both necessary and sufficient to prevent Bellman failure 
+--- is the open question whose resolution would complete the structural 
+parallel to information theory.
 
-We identify four failure modes at the serialization boundary between agents, 
-each with distinct epistemic consequences. We introduce a four-category scoring framework 
-for Layer~1 agent behavior: \textbf{Asked} ($A$): the agent requested 
-clarification before proceeding; \textbf{Detected} ($D$): the agent named the 
-ambiguity but assumed a default and proceeded; \textbf{Undetected} ($U$): the 
-agent silently assumed with no record of ambiguity; \textbf{Hallucinated} ($H$): 
-the agent introduced a dimension absent from both the input and the world state. 
-A critical non-obvious result: $D$ and $U$ are behaviorally distinct at Layer~1 
-but produce identical epistemic consequences at Layer~2 --- both result in null 
-uncertainty, the absence of a slot for the dimension in the downstream state 
-space. Only $A$ prevents null uncertainty. $H$ is strictly worse than either: 
-it expands the downstream state space with fictitious dimensions over which the 
-Bellman equation optimizes, and no rotation can repair it because no ground 
-truth exists anywhere in the pipeline.
+We introduce a four-category scoring framework for agent behavior at 
+serialization boundaries: \textbf{Asked} ($A$), \textbf{Detected} ($D$), 
+\textbf{Undetected} ($U$), \textbf{Hallucinated} ($H$). A critical 
+non-obvious result: $D$ and $U$ are behaviorally distinct at Layer~1 but 
+produce identical epistemic consequences at Layer~2 --- both result in 
+null uncertainty. Only $A$ prevents null uncertainty. $H$ is strictly 
+worse: it expands the downstream state space with fictitious dimensions 
+over which the Bellman equation optimizes, and no rotation can repair 
+it because no ground truth exists anywhere in the pipeline.
 
-The mechanism is serialization: when one agent writes its assumptions into 
-JSON, ambiguity collapses into false certainty, provenance is severed, and 
-the downstream agent's state space is simultaneously truncated of real 
-dimensions and expanded with fabricated ones. We provide a minimal empirical 
-protocol with a hardcoded answer key computable before any agent runs: 7.22 
-bits of boundary entropy, 4 required cross-boundary measurements, 150 
-indistinguishable configurations. We show the failure is not fixable by 
-improving the agent, because the information needed to detect null dimensions 
-is on the other side of the boundary, and hallucinated dimensions have no 
-other side. We position this result against POMDPs, HMS unawareness, model 
-misspecification, and Dec-POMDPs, and show that none addresses the specific 
-failure produced by serialization. We pose six open questions, including 
-whether a hallucination-adjusted coverage metric $C^*$ is computable from 
-outside the pipeline.
+We provide a minimal empirical protocol with a hardcoded answer key 
+computable before any agent runs: 7.22 bits of boundary entropy, 4 
+required cross-boundary measurements, 150 indistinguishable 
+configurations. We show the failure is not fixable by improving the 
+agent, because the information needed to detect null dimensions is on 
+the other side of the boundary. We pose open questions including 
+whether a tight lower bound on cross-boundary provenance exists that 
+would complete the structural parallel to Shannon's noisy coding theorem.
 \end{abstract}
 
-\section{Failure Modes in Systems of Decision Networks}
-\subsection{Where Bellman Breaks: Scope and Motivation}
+
+%% ============================================================
+\section{Where Bellman Breaks: Scope and Motivation}
+\label{sec:motivation}
+%% ============================================================
 
 The Bellman equation is embedded in every reinforcement learning 
 algorithm, every dynamic programming solution, and every AI agent 
@@ -80,168 +78,113 @@ precondition is not merely violated by noise or partial observation,
 but structurally destroyed by the mechanism through which agents 
 communicate.
 
-The accelerated deployment of AI agents in enterprise workflows has 
-created a new failure surface. When agents operate in pipelines --- 
-one agent's output becoming the next agent's input --- each 
-serialization boundary is a point at which the precondition can fail 
-silently. The downstream agent receives well-formed data, passes all 
-syntactic validation, and optimizes confidently over a state space 
-that may be simultaneously missing real dimensions and populated with 
-fictitious ones. No internal diagnostic detects this. The value 
-function converges --- to the wrong number.
+In enterprise systems handling high-volume settlements, educational 
+technology platforms serving millions of users, and organizations with 
+hundreds of integrated systems, codebook mismatches at serialization 
+boundaries are a persistent source of operational failure measured in 
+months and years of engineering time. The mismatch is never detected 
+by the systems involved. It surfaces only when a human asks what a 
+column means. This paper makes that question formal, computable, and 
+engineerable.
 
-This failure is not a property of any particular agent, model, or 
-prompt. It is a property of serialization itself: the act of writing 
-assumptions into structured data collapses ambiguity into false 
-certainty, severs provenance, and truncates the downstream agent's 
-state space. The failure compounds with every agent hop, every nested 
-assumption, and every repetition over time.
+When agents operate in pipelines --- one agent's output becoming the 
+next agent's input --- each serialization boundary is a point at which 
+the precondition can fail silently. The downstream agent receives 
+well-formed data, passes all syntactic validation, and optimizes 
+confidently over a state space that may be simultaneously missing real 
+dimensions and populated with fictitious ones. No internal diagnostic 
+detects this. The value function converges --- to the wrong number.
 
 The W3C Context Graph Community Group is developing formal 
 infrastructure to make this failure mode measurable and engineerable, 
 in the same way Shannon's information theory made communication 
-capacity measurable and engineerable~\cite{shannon1948}. This paper 
-establishes the mathematical boundary conditions: where exactly 
-Bellman breaks, why it cannot be fixed by improving the agent, and 
-what the minimum viable architectural response looks like. The 
-mathematics in this working paper is submitted for open review and 
-independent verification.
+capacity measurable~\cite{shannon1948}. This paper establishes the 
+mathematical boundary conditions.
 
-\subsection{Risk Surface Management at System Boundaries}
 
-The distinction between hallucination and null uncertainty is not merely 
-epistemic --- it determines whether the failure mode is engineerably 
-controllable.
+%% ============================================================
+\section{Three Contributions}
+\label{sec:novelty}
+%% ============================================================
 
-\textbf{Hallucination is enumerable in advance.} Within a system, a 
-designer can bound the set of dimensions an agent might fabricate, because 
-the agent's generative behavior is a function of its training and 
-architecture --- both of which are inspectable. A compliance envelope can 
-be defined:
+\subsection{Serialization as the Physical Mechanism of State Space 
+Truncation}
 
+The literature on decision-making under uncertainty addresses partial 
+observability (POMDP), unawareness (HMS), and model misspecification. 
+Each assumes the failure originates inside the agent or its environment. 
+None identifies the failure mechanism as residing in the communication 
+protocol between agents.
+
+Serialization --- the act of writing an agent's internal state into 
+structured data for transmission --- collapses the codebook configuration 
+$\omega \in \Omega$ into a single hardened value without measurement, 
+severs the provenance link, and truncates the downstream agent's state 
+space $S_2$ by removing $\omega$ as a variable. Simultaneously, 
+hallucinated dimensions $H \subset S_2$ where $H \cap W = \emptyset$ 
+may be added.
+
+\textbf{Falsification:} Produce a prior formalism that identifies 
+structured data transmission as the specific mechanism producing state 
+space truncation in sequential decision systems.
+
+\subsection{A Computable Pre-Hoc Bound on Boundary Entropy}
+
+The boundary entropy bound:
 \begin{equation}
-    \mathcal{K}_{\text{permitted}} = \{k_1, k_2, \ldots, k_m\}
+    H_{\text{total}} = \sum_{i \in \mathcal{F}_{\text{ambiguous}}} 
+    \log_2 |\Omega_i|
 \end{equation}
+is computable from the stimulus alone, before any agent runs.
 
-Any $k \notin \mathcal{K}_{\text{permitted}}$ appearing in the agent's 
-output is detectable by schema validation before it crosses a boundary. 
-This is standard deterministic systems engineering: define the output 
-contract, reject violations at the gate. Hallucination risk, while real, 
-is therefore \emph{bounded and controllable within a system}.
+\textbf{Falsification:} Produce a prior framework that derives a 
+computable bound on boundary ambiguity from a stimulus before agent 
+invocation.
 
-\textbf{Null uncertainty is not enumerable in advance.} The defining 
-property of a null variable is that it has no slot in the agent's state 
-space --- which means the agent cannot report it, the designer cannot 
-anticipate it from within the system, and no schema validation can flag 
-its absence. For the field \texttt{account: TRD-4471}, the system can 
-enumerate permitted output dimensions. It cannot enumerate the dimensions 
-of the codebook the sender used to produce that value, because those 
-dimensions exist on the other side of the boundary:
+\subsection{The Absent Gauge}
 
-\begin{equation}
-    |\Omega_{\text{null}}| \text{ is not computable from within } S
-\end{equation}
+The formal development of a complete decision-theoretic gauge theory 
+--- including axioms, existence proofs, and optimality conditions --- 
+remains open territory. This paper names the gap: the missing 
+decision-theoretic instrument for cross-boundary codebook alignment. 
+Three properties a gauge would require: gauge invariance (applies 
+identically at every boundary regardless of content), perseverance 
+(applied at every crossing without exception), and pre-hoc 
+computability (derivable before agents run).
 
-A permitted output schema for \texttt{account} might read:
-\begin{verbatim}
-"account": ["opaque_identifier"]
-\end{verbatim}
-This prevents hallucination of \texttt{account\_authorization}. It does 
-nothing to surface whether \texttt{TRD-4471} refers to an equity account, 
-a derivatives account, a custodial account, or a routing identifier --- 
-because those distinctions live in the sender's codebook, not in the 
-received value.
+The semantic web stack --- RDF, OWL, SHACL --- provides vocabulary 
+for expressing and reconciling codebooks once they are surfaced. 
+Context interchange~\cite{goh1999} defines explicit context axioms 
+and uses abductive reasoning to reconcile conflicts. Schema 
+matching~\cite{rahm2001} identifies correspondences between schema 
+elements. These are powerful tools whose shared precondition is that 
+codebooks are accessible before reconciliation begins. At boundaries 
+where codebooks have not been surfaced --- the default condition of 
+most cross-system communication --- these tools have nothing to 
+operate on and do not report that condition. The absent gauge is the 
+instrument needed at the layer below: determining whether that 
+precondition holds.
 
-The asymmetry is structural:
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Failure Mode} & \textbf{Enumerable in advance} & 
-\textbf{Controllable within system} \\
-\midrule
-Hallucination ($H$)  & Yes & Yes --- schema validation \\
-Null uncertainty     & No  & No --- requires cross-boundary rotation \\
-\bottomrule
-\end{tabular}
-\end{center}
+\textbf{Falsification:} Produce a prior formalism that (1) names 
+cross-boundary codebook alignment as a formal gap, (2) provides a 
+computable bound from the stimulus alone, and (3) distinguishes gauge 
+invariance from semantic invariance.
 
-This asymmetry is why null uncertainty is the harder problem, and why 
-the engineering response must be architectural rather than 
-parametric. No improvement to the agent resolves null uncertainty, 
-because the agent would need to improve by knowing what it does not 
-know --- which is precisely what null uncertainty forecloses.
 
-\textbf{The mechanics are general.} Boundaries of this kind exist not 
-only between organizations but within them: between teams, between 
-microservices, between the agent that executes a trade and the agent 
-that assesses the resulting risk. The failure mechanism --- 
-serialization collapsing ambiguity into false certainty, severing 
-provenance, truncating the downstream state space --- is identical 
-regardless of where the boundary falls. The entropy bound 
-(Section~\ref{sec:answer}) is the same calculation whether the 
-boundary is internal or external. The codebook problem is the same 
-problem.
-
-\textbf{Rotation has a cost.} Each cross-boundary measurement --- 
-each act of shifting orientation from inward (own codebook) to 
-outward (cross-boundary signal) and recording the return --- requires 
-time, compute, or attention. This cost is non-eliminable: there is no 
-way to verify codebook alignment without acquiring information from 
-the other side of the boundary. The question is not whether the cost 
-exists but who or what pays it.
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Boundary type} & \textbf{Math} & \textbf{Rotation possible} & 
-\textbf{Who pays the cost} \\
-\midrule
-Internal, low volume  & Identical & Yes & Human, manually \\
-Internal, high volume & Identical & Yes & Requires instrumentation \\
-External, any volume  & Identical & Yes & Requires instrumentation \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-At low volume and within a single organization, a skilled engineer 
-can perform rotations manually --- asking what a column means, 
-checking the timezone, verifying the currency convention. This is 
-what ETL engineers do. It is informal, unaudited, and does not scale. 
-At agent-paced operation, where thousands of boundary crossings occur 
-per hour without human intervention, manual rotation is not a 
-viable architecture.
-
-Across external system boundaries, manual rotation is additionally 
-constrained by jurisdiction: the engineer on one side does not have 
-authority to inspect the codebook on the other side, and may not 
-know the boundary exists. The information needed is structurally 
-inaccessible without a protocol both sides have agreed to participate 
-in.
-
-This is the engineering motivation for the \emph{Observatron}: a 
-stateful boundary node that rotates between inward and outward 
-orientations at a system boundary, records the return as a canonical 
-claim, and converts null uncertainty into defined uncertainty before 
-serialization occurs~\cite{itelman2026lh}. The Observatron does not 
-change the mathematics. It makes the cost of rotation payable at 
-scale, in a form that is auditable, machine-readable, and composable 
-across pipelines. The boundary math is the same. What changes is 
-whether anyone is paying the rotation cost at all.
 %% ============================================================
 \section{Background: The Bellman Equation}
 %% ============================================================
 
-In 1957, Richard Bellman published \emph{Dynamic Programming}, establishing the mathematical foundation for sequential decision-making under uncertainty. The core insight is that any multi-step decision problem can be decomposed into a chain of one-step decisions. The Bellman equation expresses this recursively:
+The Bellman equation expresses the principle of optimality:
 \[
-V^*(s) = \max_{a \in A} \left[ R(s, a) + \gamma \sum_{s'} P(s' | s, a)\, V^*(s') \right]
+V^*(s) = \max_{a \in A} \left[ R(s, a) + \gamma \sum_{s'} 
+P(s' | s, a)\, V^*(s') \right]
 \]
-where $V^*(s)$ is the value of being in state $s$ under the optimal policy, $R(s, a)$ is the immediate reward for taking action $a$ in state $s$, $\gamma$ is a discount factor, and $P(s'|s,a)$ is the probability of transitioning to state $s'$.
-
-The equation says: the value of your current situation is the best action you can take now, plus the discounted value of where that action puts you next. This is the basis of every reinforcement learning algorithm, every dynamic programming solution, every AI agent that plans over multiple steps.
-
-The equation has one precondition that appears so obvious it is rarely stated: \emph{the agent must be able to observe $s$}. If the agent cannot observe the state, it cannot evaluate which action is best. The equation produces a number, but that number does not correspond to the true value of the situation.
-
-This paper is about what happens when that precondition fails --- specifically, at the boundaries between systems where data crosses but codebooks do not.
+where $V^*(s)$ is the value of state $s$ under the optimal policy. 
+The equation has one precondition: \emph{the agent must be able to 
+observe $s$}. This paper is about what happens when that precondition 
+fails at the boundaries between systems where data crosses but 
+codebooks do not.
 
 
 %% ============================================================
@@ -249,33 +192,30 @@ This paper is about what happens when that precondition fails --- specifically, 
 %% ============================================================
 
 \begin{definition}[True State]
-At a system boundary, the true state is $s_{\mathrm{true}} = (s, \omega)$, where $s$ is the data the agent receives and $\omega \in \Omega$ is the codebook configuration --- the date format, unit convention, semantic definition, and reference frame under which $s$ should be interpreted.
+At a system boundary, the true state is $s_{\mathrm{true}} = (s, \omega)$, 
+where $s$ is the data the agent receives and $\omega \in \Omega$ is the 
+codebook configuration.
 \end{definition}
 
 \begin{definition}[Observation Function]
-The observation function at a system boundary is $O(s, \omega) = s$. The data crosses the boundary. The codebook does not. The agent sees $s$ but not $\omega$.
+The observation function at a system boundary is $O(s, \omega) = s$. 
+The data crosses the boundary. The codebook does not.
 \end{definition}
 
 \begin{definition}[Resolution Capacity]
-The resolution capacity $R$ is the number of configurations in $\Omega$ that the agent can distinguish from $s$ alone. For a bare value with no metadata, $R = 1$: the agent can read the value but cannot determine which codebook produced it.
+The resolution capacity $R$ is the number of configurations in $\Omega$ 
+that the agent can distinguish from $s$ alone. For a bare value with no 
+metadata, $R = 1$.
 \end{definition}
 
-\noindent When $|\Omega| > R$, the pigeonhole principle guarantees that at least $|\Omega| - R$ configurations produce identical observations. The agent cannot distinguish them. The Bellman equation treats them as the same state. They are not the same state.
+\noindent When $|\Omega| > R$, the pigeonhole principle guarantees that 
+at least $|\Omega| - R$ configurations produce identical observations.
 
+
+%% ============================================================
 \section{The Observability Condition}
-
-We state the core observability result as a lemma rather than a 
-theorem. It is cleared ground --- a direct consequence of the 
-projection structure of the observation function --- not the primary 
-contribution of this paper. The primary contributions are: (1) the 
-identification of serialization as the physical mechanism that 
-produces this condition at system boundaries, (2) the four-category 
-scoring framework (A, D, U, H) that characterizes how agents fail 
-under this condition, and (3) the H category and its consequence that 
-rotation-based recovery is undefined for hallucinated dimensions. The 
-lemma establishes why recovery is impossible within a fixed state 
-space; the rest of the paper establishes what that means in practice 
-and at scale.
+\label{sec:observability}
+%% ============================================================
 
 \begin{lemma}[Bellman Observability Failure]
 \label{thm:bellman}
@@ -296,36 +236,22 @@ Different optimal actions yield different optimal values:
 $V^*(s, \omega_1) \neq V^*(s, \omega_2)$. But $\hat{V}(s)$ returns 
 one number. One number cannot equal two different values. Every 
 function of $s$ returns the same output for $\omega_1$ and $\omega_2$ 
-because $O$ projects away $\omega$. Therefore no refinement within 
-the agent's state space recovers the true value function. \qed
+because $O$ projects away $\omega$. \qed
 \end{proof}
 
-The divergence gap --- the minimum guaranteed loss --- is:
-\[
-\Delta = |V^*(s, \omega_1) - V^*(s, \omega_2)| > 0
-\]
+The divergence gap is:
+$\Delta = |V^*(s, \omega_1) - V^*(s, \omega_2)| > 0$.
 
-\noindent This result is closely related to the unawareness 
-literature, particularly Heifetz, Meier, and Schipper 
-(HMS)~\cite{hms2006}, who formalize that agents inhabiting a state 
-space $S_\alpha$ cannot express propositions requiring a richer space 
-$S_\beta \succ S_\alpha$. The present result is an application of 
-that structure to serialization pipelines. What we add beyond HMS is 
-threefold: the physical mechanism (serialization) that produces the 
-lattice, a computable bound on the exposure (Section~\ref{sec:answer}), 
-and the H category (Section~\ref{sec:hallucination}), which has no 
-analogue in HMS --- HMS addresses missing propositions, not fabricated 
-dimensions with undefined rotation functions.
-
-
+This is the \emph{closure property}: no function computable within 
+a fixed state space $S$ recovers a variable $\omega \notin S$. The 
+closure property is the load-bearing claim of this paper. Everything 
+that follows is downstream of it.
 
 
 %% ============================================================
 \section{Where Exactly Does It Break?}
 \label{sec:where}
 %% ============================================================
-
-The key question is: at which point in a multi-agent workflow does the Bellman equation become invalid? The answer is precise, and it is not where most people would expect.
 
 \subsection{Layer 1: The Trade Agent}
 
@@ -335,165 +261,201 @@ date,amount,location,instrument,direction,order_type,account
 4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471
 \end{verbatim}
 
-
-At this point, the Bellman equation is \emph{already invalid} in the 
-sense of Lemma~\ref{thm:bellman}: the agent's state $s$ does not include $\omega$, so its value function is wrong for at least one configuration. However, the agent is at least \emph{proximate} to the boundary. A well-designed agent could, in principle, recognize that the date format is ambiguous and ask. The information it needs exists one hop away --- at the sender.
+The Bellman equation is already invalid: $\omega \notin S_1$. But 
+the agent is proximate to the boundary. A well-designed agent could 
+recognize the ambiguity and ask.
 
 \textbf{Bellman status at Layer 1:} Invalid, but potentially recoverable.
 
-\subsection{Layer 2: The Risk Agent --- Where It Truly Breaks}
+\subsection{Layer 2: The Risk Agent}
 
-The trade agent outputs structured JSON where every field is concrete: \texttt{"date": "2026-04-05"}, \texttt{"currency": "SGD"}, \texttt{"instrument": "S68.SI"}. A second agent receives this and is asked to assess portfolio risk.
-
-\textbf{This is where Bellman breaks irreparably.} Four things happen simultaneously:
-
-\begin{enumerate}
-  \item \textbf{The ambiguity is gone.} Every assumption has been hardened into data. The risk agent has no signal these were ever uncertain.
-
-  \item \textbf{The boundary is no longer adjacent.} The risk agent is two hops from the original sender. It does not know who the sender was, what format they used, or that a format choice was made.
-
-  \item \textbf{The risk agent adds its own assumptions.} Correlation model, volatility window, risk threshold, hedging instrument --- each is a new open boundary with its own $\Omega$.
-
-  \item \textbf{The risk agent's state space is structurally incomplete.} Its state $s_2$ includes Layer 1's output as fact. $\omega_1 \notin s_2$. No function in $\mathcal{F}(S_2)$ can surface the need for it.
-\end{enumerate}
+The trade agent outputs JSON: \texttt{"date": "2026-04-05"}, 
+\texttt{"currency": "SGD"}, \texttt{"instrument": "S68.SI"}. Every 
+assumption has been hardened into data. The risk agent has no signal 
+these were ever uncertain. Its state space $S_2$ includes Layer~1's 
+output as fact. $\omega_1 \notin S_2$. No function in $\mathcal{F}(S_2)$ 
+can surface the need for it.
 
 \textbf{Bellman status at Layer 2:} Invalid and non-recoverable.
 
 \subsection{The Precise Mechanism}
 
-The break point is the \textbf{serialization boundary} between Layer 1 and Layer 2. When Layer 1 writes its assumptions into JSON:
+The break point is the serialization boundary between Layer~1 and 
+Layer~2. When Layer~1 writes its assumptions into JSON: (1) entropy 
+collapse --- the date field goes from $H = 1$ bit to $H = 0$ bits 
+by assumption, not measurement; (2) provenance loss --- the JSON does 
+not record that the value was derived from ambiguous input; (3) state 
+space truncation --- $\omega_1$ does not exist in $S_2$.
 
-\begin{enumerate}
-  \item \textbf{Entropy collapse:} The date field goes from $H = 1$ bit to $H = 0$ bits. But the collapse was caused by assumption, not measurement. The entropy became invisible.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figure-1.png}
+\caption{The Observatron: a stateful boundary node that rotates between 
+inward (own codebook) and outward (cross-boundary signal) orientations. 
+At each timestep, the observer shifts orientation, encounters the 
+ACT/ASK/HALT decision, and records the return. Neither side sees both 
+frames simultaneously. Top: outward rotation (acquiring external 
+codebook). Bottom: inward rotation (comparing against own codebook).}
+\label{fig:observatron}
+\end{figure}
 
-  \item \textbf{Provenance loss:} The JSON does not record that \texttt{2026-04-05} was derived from an ambiguous input.
 
-  \item \textbf{State space truncation:} $\omega_1$ is not a variable in $S_2$. It is not hidden. It does not exist.
+%% ============================================================
+\section{The Universal Fault Line}
+\label{sec:fault-line}
+%% ============================================================
+
+The serialization boundary is not a niche result in decision theory. 
+The following frameworks each have a precondition that fails at the 
+same structural point. These are not analogies. They are the same 
+structural failure --- projection of a shared variable without 
+reporting the severance --- expressed in different formalisms.
+
+\textbf{Bellman / dynamic programming:} The observability 
+precondition. At the serialization boundary, the codebook $\omega$ 
+is projected away. The value function converges to the wrong number 
+(Lemma~\ref{thm:bellman}).
+
+\textbf{Nash equilibrium / game theory:} The common knowledge 
+precondition. At the serialization boundary, the codebook is not 
+common knowledge. The Nash equilibrium computed over misaligned 
+codebooks is not an equilibrium of the actual game.
+
+\textbf{Kuramoto / synchronization theory:} The coupling coherence 
+precondition. At the serialization boundary, the codebook is not in 
+the signal. No coupling force acts on it 
+(Proposition~\ref{prop:strogatz}).
+
+\textbf{Kalman filtering:} The observation model precondition. If 
+the codebook for the measurement differs from the codebook for the 
+state, the Kalman gain is computed over the wrong model. The filter 
+converges. Every diagnostic says the filter is healthy.
+
+\textbf{Shannon channel capacity:} Shannon explicitly scoped his 
+theory to reliable transmission, not semantics. The capacity theorem 
+tells you how many bits can cross the channel. It does not tell you 
+whether the bits mean the same thing on both sides.
+
+The closure property applies identically to all: no function 
+computable from the received data alone recovers the projected 
+variable. The bound $H_{\text{total}} = \sum_i \log_2 |\Omega_i|$ 
+measures the same fault at every boundary, in every domain.
+
+\textbf{Scope.} The Bellman failure (Lemma~\ref{thm:bellman}) and 
+the Kuramoto failure (Proposition~\ref{prop:strogatz}) are derived 
+rigorously in this paper. The Nash, Kalman, and Shannon applications 
+follow the same structural pattern and are stated here as conjectured 
+applications; full derivations are future work 
+(Section~\ref{sec:metamath}).
+
+
+%% ============================================================
+\section{The Strogatz Inversion}
+\label{sec:strogatz}
+%% ============================================================
+
+Strogatz (2003) proved that coupled oscillators synchronize 
+through a shared medium. The Kuramoto model:
+\[
+\dot{\theta}_i = \omega_i + \frac{K}{N} \sum_{j=1}^{N} 
+\sin(\theta_j - \theta_i)
+\]
+Above critical coupling $K_c$, the system locks. Synchronization 
+is passive --- the phase \emph{is} the signal.
+
+At system boundaries, the variable that must synchronize is 
+\textbf{not in the signal}.
+
+\begin{proposition}[Strogatz Inversion]
+\label{prop:strogatz}
+Let $(X, Y, p(x), p(y|x))$ be a Shannon channel between systems 
+$A$ and $B$ with codebooks $C_A, C_B$ and divergence 
+$\delta_{AB} = d(C_A, C_B)$. Then:
+\begin{enumerate}[label=(\roman*)]
+  \item No quantity computable from the channel varies with 
+  $\delta_{AB}$.
+  \item The channel dynamics contain no coupling force on the codebook.
+  \item $\delta_{AB}$ does not converge under data exchange alone, 
+  regardless of bandwidth, duration, or volume.
 \end{enumerate}
+\end{proposition}
+
+\begin{proof}
+$C_A$ and $C_B$ do not appear in $(X, Y, p(x), p(y|x))$. Every 
+channel quantity is a function of $p(x,y)$, which is identical 
+whether $C_A = C_B$ or $C_A \neq C_B$. No channel observable 
+couples to $\delta_{AB}$. \qed
+\end{proof}
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+& \textbf{Kuramoto (physical)} & \textbf{Boundary (semantic)} \\
+\midrule
+Variable to sync & Phase $\theta_i$ & Codebook $C_i$ \\
+In the signal? & Yes & No \\
+Coupling force & $\frac{K}{N}\sin(\theta_j - \theta_i)$ & None \\
+Convergence & Spontaneous above $K_c$ & Does not occur \\
+Recovery & Passive (listen) & Active (rotation) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The defensive dual.} If semantic alignment cannot propagate 
+passively, then semantic contamination cannot propagate passively 
+either. The serialization boundary functions as a semantic firewall: 
+null interference is the dual of null uncertainty.
 
 
+%% ============================================================
 \section{The Geometry of Compounding Null Uncertainty}
 \label{sec:compounding}
-
-The previous section identified the serialization boundary as the point where Bellman breaks. This section shows that the failure is not isolated --- it compounds across three independent axes, producing a volume of undetectable exposure that grows with every agent hop, every nested assumption, and every repetition over time.
+%% ============================================================
 
 \subsection{Three Axes}
 
-We define a coordinate system for null uncertainty:
-
 \begin{definition}[Sequential Axis ($X$)]
-The sequential axis counts \emph{agent hops}. Each hop $x \in \{1, 2, \ldots, L\}$ is a serialization boundary where one agent's output becomes the next agent's input. At each hop, provenance is severed and the downstream agent's state space is truncated. $L$ is the total depth of the agent pipeline.
+Agent hops. Each hop is a serialization boundary. $L$ is pipeline depth.
 \end{definition}
 
 \begin{definition}[Nested Axis ($Y$)]
-The nested axis counts \emph{assumptions within a single layer}. At layer $x$, the agent makes $n_x$ assumptions, each with its own interpretation space $\Omega_{x,y}$. The assumptions are stacked: some are inherited from previous layers (invisible, $\omega \notin S_x$) and some are the agent's own (visible within $S_x$). Let $n_x^{\text{inh}}$ be the count of inherited assumptions and $n_x^{\text{own}}$ the count of the agent's own. The total depth at layer $x$ is $n_x = n_x^{\text{inh}} + n_x^{\text{own}}$.
+Assumptions within a single layer: $n_x^{\text{inh}}$ inherited, 
+$n_x^{\text{own}}$ the agent's own.
 \end{definition}
 
 \begin{definition}[Temporal Axis ($Z$)]
-The temporal axis counts \emph{repetitions over time}. Each repetition $z \in \{1, 2, \ldots, T\}$ is an independent execution of the pipeline (e.g., one trade per day over a quarter). At the end of the temporal window, a downstream agent (e.g., a strategy recommender) aggregates the outputs of all $T$ runs.
+Repetitions over time. $T$ independent pipeline executions.
 \end{definition}
-
-\subsection{Entropy at a Point}
-
-At coordinates $(x, y, z)$ --- layer $x$, assumption $y$, run $z$ --- the boundary entropy is:
-\[
-h(x, y, z) = \begin{cases}
-\log_2 |\Omega_{x,y}| & \text{if assumption } y \text{ is Detected ($D$) or Undetected ($U$)} \\
-0 & \text{if assumption } y \text{ was Asked ($A$)} \\
-\text{excluded} & \text{if assumption } y \text{ is Hallucinated ($H$) --- see Section~\ref{sec:hallucination}}
-\end{cases}
-\]
-\subsection{Entropy per Layer}
-
-At layer $x$ in run $z$, the total entropy is the sum over all assumptions at that layer:
-\[
-H_x(z) = \underbrace{\sum_{y=1}^{n_x^{\text{inh}}} h(x, y, z)}_{\text{inherited (invisible)}} + \underbrace{\sum_{y=n_x^{\text{inh}}+1}^{n_x} h(x, y, z)}_{\text{own (visible)}}
-\]
-
-The critical structural property: the inherited term is \emph{invisible to the agent at layer $x$}. No function in $\mathcal{F}(S_x)$ can compute it. The agent's self-reported uncertainty is only the second sum. The first sum is structurally absent from its state space.
 
 \subsection{Inherited Entropy Grows Monotonically}
 
-At each serialization boundary, the inherited entropy can only increase:
+At each serialization boundary:
 \[
-H_{x+1}^{\text{inh}} = H_x^{\text{inh}} + H_x^{\text{own}} = \sum_{k=1}^{x} H_k^{\text{own}}
+H_{x+1}^{\text{inh}} = \sum_{k=1}^{x} H_k^{\text{own}}
 \]
 
-This follows from the serialization mechanism: every unresolved assumption at layer $x$ is hardened into data at layer $x+1$. Nothing is lost from the inherited set. Everything unresolved in the own set is added to it.
-
-At layer $L$ (the final agent in the pipeline), the total inherited entropy is:
-\[
-H_L^{\text{inh}} = \sum_{k=1}^{L-1} H_k^{\text{own}}
-\]
-
-\textbf{The agent at layer $L$ can see only $H_L^{\text{own}}$. It is blind to $H_L^{\text{inh}}$.}
+The agent at layer $L$ sees only $H_L^{\text{own}}$. It is blind to 
+$H_L^{\text{inh}}$.
 
 \subsection{Configuration Space Grows Multiplicatively}
 
-While entropy sums additively, the configuration space grows as a product:
 \[
-|\Omega_{\text{total}}^{(x)}| = \prod_{k=1}^{x} \prod_{y=1}^{n_k} |\Omega_{k,y}|
+|\Omega_{\text{total}}^{(x)}| = \prod_{k=1}^{x} \prod_{y=1}^{n_k} 
+|\Omega_{k,y}|
 \]
-
-For our experiment: Layer 1 has $|\Omega^{(1)}| = 150$. If Layer 2 adds 3 own assumptions with $|\Omega| = 3, 4, 5$ respectively, then:
-\[
-|\Omega^{(2)}_{\text{total}}| = 150 \times 3 \times 4 \times 5 = 9{,}000
-\]
-
-The Layer 2 agent can distinguish at most $\prod R_{2,y} = 1$ configuration from its own state space. At least 8,999 configurations are observationally indistinguishable from verified alignment.
 
 \subsection{Temporal Aggregation}
 
-A strategy agent at the end of a quarter aggregates $T$ pipeline runs. Each run $z$ carries total entropy $H_L(z)$. The strategy agent's total null exposure is:
+For $T$ runs with $L$ layers:
 \[
-H_{\text{strategy}} = \sum_{z=1}^{T} H_L(z) = T \cdot \left( \sum_{k=1}^{L} H_k^{\text{own}} \right)
+H_{\text{strategy}} \leq T \cdot \sum_{k=1}^{L} H_k^{\text{own}}
 \]
 
-assuming each run has the same structure (a simplification; in practice the entropy per run may vary).
-
-For our experiment with $T = 50$ trades over a quarter, $L = 2$ layers, $H_1^{\text{own}} = 7.22$ bits, and $H_2^{\text{own}} \approx 5$ bits (estimated):
-\[
-H_{\text{strategy}} \leq 50 \times (7.22 + 5.00) = 611 \text{ bits}
-\]
-
-This is an upper bound under two assumptions: independence across runs and independence across fields within each run. Correlations between assumptions (e.g., DD/MM format correlating with SGD currency) would reduce the true configuration space. The bound is therefore worst-case. However, even a substantially tighter bound leaves the strategy agent's total null exposure orders of magnitude larger than its self-reported uncertainty of approximately $H_3^{\text{own}}$ bits.
-
-\subsection{The Volume of Null Exposure}
-
-The total null exposure is a volume in the $(X, Y, Z)$ space:
-\[
-\mathcal{V} = \sum_{z=1}^{T} \sum_{x=1}^{L} \sum_{y=1}^{n_x} h(x, y, z) \cdot \mathbf{1}[\text{invisible at final layer}]
-\]
-
-where $\mathbf{1}[\text{invisible}]$ is 1 if the assumption at $(x, y, z)$ is in the inherited set of the final agent and 0 otherwise.
-
-The agent at the final layer sees a single slice of this volume: its own layer ($x = L$), its own assumptions ($y > n_L^{\text{inh}}$), the current run ($z = T$). Everything else --- the vast majority of the volume --- is structurally invisible.
-
-\subsection{Figure Specification}
-
-The figure has three panels:
-
-\textbf{Panel A: The Sequential Axis ($X$).} A horizontal pipeline: Layer 1 (Trade) $\to$ Layer 2 (Risk) $\to$ Layer 3 (Strategy). At each arrow, a serialization boundary is marked. Above each layer, a stacked bar shows inherited entropy (gray, growing) and own entropy (colored, constant per layer). The gray portion grows monotonically left to right. The colored portion is what each agent can see. Label the gray portion: ``invisible to this agent.''
-
-\textbf{Panel B: The Nested Axis ($Y$).} A vertical stack at Layer 2, 
-showing all assumptions. Top section (gray): inherited from Layer~1 
---- date, currency, instrument, location. Each bar is flat, 
-zero-width, because these dimensions do not exist in $S_2$: they are 
-null uncertainty, present in the world but absent from the state 
-space. Bottom section (colored): Layer~2's own assumptions --- 
-correlation model, volatility window, risk threshold. These are 
-full-width bars, each scored A, D, U, or H. Any H-scored bar should 
-be rendered in a distinct color (suggested: purple) to distinguish 
-fictitious dimensions from real ones. The visual contrast: the top 
-is empty (structurally absent, null uncertainty), the bottom is 
-active (the agent's world, mixture of real and potentially fictitious 
-dimensions). The agent sees only the bottom. It cannot see that the 
-top exists.
-
-\textbf{Panel C: The Temporal Axis ($Z$).} A grid of $T = 50$ columns (one per trade) and $L = 2$ rows (one per layer). Each cell is colored by entropy: green (resolved), red (null), gray (inherited). Over time, the red and gray accumulate. The bottom row (strategy agent's view) is a single horizontal bar showing only its own slice. Below it, the full grid is visible to the reader but not to the agent. Label: ``What the strategy agent sees'' vs.\ ``What actually exists.''
-
-\textbf{Panel D: The Volume.} A 3D block with axes $X$ (layers), $Y$ (assumptions), $Z$ (time). The agent's visible slice is a thin plane on the near face. The rest of the volume is translucent red --- the accumulated null uncertainty. The visible slice is green or blue. The volume label: $\mathcal{V} \leq 611$ bits (upper bound). The slice label: $H_3^{\text{own}} \approx 3$ bits. The ratio is the compounding factor.
-
+This is an upper bound assuming independence across runs and fields. 
+Correlations would reduce the true configuration space. For 
+$T = 50$, $L = 2$, $H_1^{\text{own}} = 7.22$, 
+$H_2^{\text{own}} \approx 5$:
+$H_{\text{strategy}} \leq 611$ bits.
 
 
 %% ============================================================
@@ -501,15 +463,17 @@ top exists.
 \label{sec:answer}
 %% ============================================================
 
-Because we designed the CSV, the following values are computable before any agent runs:
+Because we designed the CSV, the following values are computable 
+before any agent runs:
 
 \begin{table}[h]
 \centering
 \begin{tabular}{@{}llccl@{}}
 \toprule
-\textbf{Field} & \textbf{Value} & $|\Omega|$ & $R$ & \textbf{Plausible Interpretations} \\
+\textbf{Field} & \textbf{Value} & $|\Omega|$ & $R$ & 
+\textbf{Plausible Interpretations} \\
 \midrule
-date       & 4/5/2026   & 2 & 1 & MM/DD (Apr 5) or DD/MM (May 4) \\
+date       & 4/5/2026   & 2 & 1 & MM/DD or DD/MM \\
 amount     & 1000000    & 5 & 1 & USD, SGD, GBP, shares, lots \\
 location   & Singapore  & 5 & 1 & Client, exchange, broker, settlement, desk \\
 instrument & SGX        & 3 & 1 & Exchange name, ticker, index product \\
@@ -518,309 +482,255 @@ order\_type & market     & 1 & 1 & Unambiguous \\
 account    & TRD-4471   & 1 & 1 & Opaque identifier \\
 \bottomrule
 \end{tabular}
-\caption{Interpretation space per field. The $|\Omega|$ counts are stipulated by the authors based on plausible readings of each field. A different analyst may enumerate more or fewer interpretations. The downstream arithmetic (7.22 bits, 150 configurations) is exact given these counts; the counts themselves are design choices, not derivations.}
+\caption{Interpretation space per field.}
 \end{table}
+
+A different analyst enumerating $|\Omega_i|$ differently will obtain 
+different numbers. The mathematical claim --- that $H_{\text{total}} > 0$ 
+and $|\Omega_{\text{total}}| > 1$ for any plausible enumeration of 
+this stimulus --- is robust to the specific counts. The specific 
+values 7.22 bits and 150 configurations are one instantiation, not 
+a derivation.
 
 \begin{align}
 H_{\text{total}} &= 1.00 + 2.32 + 2.32 + 1.58 = 7.22 \text{ bits} \\
-|\Omega_{\text{total}}| &= 2 \times 5 \times 5 \times 3 = 150 \text{ configurations} \\
+|\Omega_{\text{total}}| &= 2 \times 5 \times 5 \times 3 = 150 \\
 \text{Null configs} &= 149 \qquad \text{Min.\ rotations} = 4
 \end{align}
 
-April 5, 2026 is a Sunday. May 4, 2026 is a Monday. The divergence gap $\Delta > 0$ is guaranteed.
+April 5, 2026 is a Sunday. May 4, 2026 is a Monday. The divergence 
+gap $\Delta > 0$ is guaranteed.
 
 
 %% ============================================================
 \section{The Experiment}
+\label{sec:experiment}
 %% ============================================================
 
 \subsection{Layer 1: Trade Execution}
 
-\textbf{System prompt:}
-\begin{quote}\small
-You are a stock trading agent simulation for a research demonstration. You operate a simulated trading desk. When you receive an order, simulate executing it exactly as a real trading agent would. You must give detailed reasoning for how you handle every aspect of the execution. Explain in detail why you took each reasoning step. This is important --- your decision traces are harvested for future strategy analytics that AI can leverage from every single interaction. Show your work in two parts: 1.\ EXECUTION API CALL: Show the final JSON API call you would send to our execution system. 2.\ DECISION TRACE API CALL: Show a separate JSON API call containing your full decision trace. Do not meta-explain. Do not comment on the simulation itself. Just give me your best simulation.
-\end{quote}
+\textbf{System prompt:} You are a stock trading agent simulation. 
+When you receive an order, simulate executing it exactly as a real 
+trading agent would. Show your work in two parts: (1) EXECUTION API 
+CALL as JSON; (2) DECISION TRACE API CALL as JSON.
 
-\textbf{User message:}
-\begin{quote}\small
-Please execute this order:
-
-date,amount,location,instrument,direction,order\_type,account\\
-4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471
-\end{quote}
+\textbf{User message:} The CSV above.
 
 \subsection{Layer 2: Portfolio Risk}
 
-Feed Layer 1's output to a fresh agent:
-
-\textbf{System prompt:}
-\begin{quote}\small
-You are a portfolio risk agent simulation for a research demonstration. You receive executed trades and their decision traces from our trading desk. Your job is to assess portfolio exposure and recommend hedging actions. You must give detailed reasoning for every aspect of your risk assessment. Explain why you chose each model, threshold, and recommendation. Your reasoning is harvested for strategy analytics. Show your work in two parts: 1.\ RISK ASSESSMENT JSON: Your full risk analysis as structured JSON. 2.\ DECISION TRACE JSON: Every assumption, model choice, and reasoning step. Do not meta-explain. Just give me your best simulation.
-\end{quote}
-
-\textbf{User message:}
-\begin{quote}\small
-Here is the executed trade and its decision trace from our trading desk:
-
-[paste Layer 1's execution JSON]
-
-[paste Layer 1's decision trace JSON]
-
-Assess our portfolio exposure and recommend any hedging actions.
-\end{quote}
+Feed Layer~1's output to a fresh agent asked to assess portfolio 
+risk and recommend hedging actions.
 
 \subsection{The Killer Question}
 
-After Layer 2 responds:
-
-\begin{quote}\small
-List every assumption in your input data that you cannot independently verify.
-\end{quote}
-
-If the closure property holds, the risk agent will list its own modeling assumptions (correlation model, volatility window, etc.) but will not list the date format, currency, or instrument identity from Layer 1 --- because those do not appear as assumptions in $S_2$. They appear as data.
+After Layer~2 responds: ``List every assumption in your input data 
+that you cannot independently verify.'' If the closure property 
+holds, the risk agent will list its own modeling assumptions but 
+will not list the date format, currency, or instrument identity 
+from Layer~1 --- because those appear as data, not assumptions, 
+in $S_2$.
 
 \subsection{Scoring}
 
-For each ambiguity, classify the agent's response using one of four 
-categories:
+For each ambiguity, classify the agent's response:
 
 \begin{itemize}
-  \item \textbf{A} --- Asked: the agent detected the ambiguity and 
-  requested clarification from the sender before proceeding. A 
-  cross-boundary rotation was made. The ambiguity was resolved before 
-  serialization.
-
-  \item \textbf{D} --- Detected: the agent detected the ambiguity, named 
-  it explicitly in its output, but selected a default interpretation and 
-  proceeded without requesting clarification. No cross-boundary measurement 
-  was made. The resolved value crosses the boundary; the ambiguity does not. 
-  Despite Layer~1 awareness, $D$ produces null uncertainty at Layer~2: the 
-  downstream agent's state space contains no slot for the codebook dimension 
-  $\omega$, and the chosen value is indistinguishable from a verified one.
-
-  \item \textbf{U} --- Undetected: the agent did not detect the ambiguity. 
-  It selected an interpretation and serialized it as fact with no record 
-  that a choice was made. The ambiguity is invisible in the output. $U$ 
-  produces the same Layer~2 epistemic state as $D$ --- null uncertainty --- 
-  but removes even the possibility of retrospective audit from the reasoning 
-  trace.
-
-  \item \textbf{H} --- Hallucinated: the agent introduced a dimension not 
-  present in the input and having no referent in the world state $W$ that 
-  generated the input. The agent did not detect or fail to detect an 
-  ambiguity --- it generated a dimension that was never in the problem. 
-  The dimension enters $S_2$ as verified fact with $\rho(k)$ undefined. 
-  This category was not specified in advance; it emerged during 
-  formalization of the scoring criteria and was confirmed on the first 
-  demonstration run. See Section~\ref{sec:hallucination}.
+  \item \textbf{A} --- Asked: clarification requested before proceeding.
+  \item \textbf{D} --- Detected: ambiguity named but default assumed.
+  \item \textbf{U} --- Undetected: silent assumption, no record.
+  \item \textbf{H} --- Hallucinated: dimension fabricated with no 
+  referent in the world state $W$.
 \end{itemize}
 
-A critical non-obvious result: $D$ and $U$ are behaviorally distinct at 
-Layer~1 but produce identical epistemic consequences at Layer~2. Both 
-result in null uncertainty. Only $A$ prevents null uncertainty. This 
-means that an agent which is fully aware of every ambiguity --- scoring 
-$D$ on every field --- is epistemically equivalent to an agent that is 
-aware of nothing, from the perspective of the downstream agent in $S_2$.
+$D$ and $U$ are behaviorally distinct at Layer~1 but produce 
+identical epistemic consequences at Layer~2: null uncertainty. Only 
+$A$ prevents null uncertainty.
 
-Items 11--13 are the critical test for null uncertainty. We predict the 
-risk agent will score $U$ on all three --- not as a mathematical claim, 
-but as an empirical prediction about LLM behavior under the closure 
-property. A single counterexample would not falsify the lemma; it would 
-indicate the agent brought external knowledge not present in the JSON, 
-which is itself an informal cross-boundary measurement.
-
-Item 9 is the critical test for hallucination: the account field 
-\texttt{TRD-4471} carries $|\Omega| = 1$ in the answer key (opaque 
-identifier). An agent that asserts a value for 
-\texttt{account\_authorization} has introduced a dimension with no 
-referent in the original CSV or in any world state the CSV describes. 
-That assertion crosses the serialization boundary as 
-fact.\footnote{This is the empirical observation that necessitated the 
-$H$ category. The answer key stipulated $|\Omega| = 1$ for 
-\texttt{account}. The agent produced a field the answer key did not 
-contain. The answer key's configuration space 
-$|\Omega_{\text{total}}| = 150$ does not bound hallucination; $H$ 
-dimensions lie outside $\Omega$ entirely.}
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}clp{5.8cm}l@{}}
-\toprule
-\# & Field & Ambiguity & Predicted \\
-\midrule
-1  & date        & Is 4/5 April 5th or May 4th? & U \\
-2  & amount      & Dollars, shares, lots, or notional? & D \\
-3  & amount      & Which currency? & D \\
-4  & location    & Client, exchange, broker, settlement, desk? & U \\
-5  & instrument  & Exchange, ticker, or index product? & D \\
-6  & instrument  & What specific security? & D \\
-7  & order\_type & Market on \$1M --- no slippage protection? & D \\
-8  & date        & Weekend or holiday? & U \\
-9  & account     & Authorization status? & H \\
-10 & timezone    & What timezone? & D \\
-\midrule
-11 & Layer 1$\to$2 & Did risk agent question Layer 1's date? & U \\
-12 & Layer 1$\to$2 & Did risk agent question Layer 1's currency? & U \\
-13 & Layer 1$\to$2 & Did risk agent question Layer 1's instrument? & U \\
-14 & Layer 2       & Did risk agent state its correlation model? & D \\
-15 & Layer 2       & Did risk agent state its volatility window? & D \\
-\bottomrule
-\end{tabular}
-\caption{Full scoring checklist. $A$ = Asked (rotation made, ambiguity 
-resolved before serialization); $D$ = Detected (ambiguity named but 
-assumed, no rotation, null uncertainty at Layer~2); $U$ = Undetected 
-(silent assumption, no record, null uncertainty at Layer~2); $H$ = 
-Hallucinated (dimension fabricated, $\rho(k)$ undefined, fictitious 
-state in $S_2$). $D$ and $U$ produce identical Layer~2 epistemic 
-consequences despite distinct Layer~1 behaviors. Items 11--13 test 
-null uncertainty at the serialization boundary. Item~9 tests 
-hallucination. $H$ was not a predicted category; it emerged during 
-formalization of the scoring criteria.}
-\end{table}
-
-\subsection{Hallucinated Variables: A Fourth Failure Mode}
+\subsection{Hallucinated Variables}
 \label{sec:hallucination}
 
-
-The three-category scoring framework (A, D, U) was specified before the
-experiment ran. Item~9 produced a result outside those categories: the
-agent asserted \texttt{account\_authorization: PASS} for the field
-\texttt{TRD-4471}, which the answer key classified as an opaque identifier
-with $|\Omega| = 1$. No interpretation of the input CSV produces
-\texttt{account\_authorization} as a field. The agent constructed it.
-This discovery necessitated a fourth category, $H$ (Hallucinated), which
-was confirmed on subsequent demonstration runs.
-
-This is structurally distinct from null uncertainty, and strictly more
-severe.
-
 \begin{definition}[Hallucinated Variable]
-\label{def:hallucination}
-Let $W$ be the world state, $S_{\text{input}}$ the received data, and 
-$S_2$ the downstream agent's state space after serialization. A variable 
-$k$ is \emph{hallucinated} if:
-\begin{enumerate}[label=(\roman*)]
-    \item $k \notin S_{\text{input}}$: $k$ was not present in the 
-    received data,
-    \item $k \notin W$: $k$ has no referent in the world state that 
-    generated the input, and
-    \item $k \in S_2$: $k$ appears in the downstream state space carrying 
-    an asserted value $v_k$ indistinguishable in format from verified data.
-\end{enumerate}
+A variable $k$ is hallucinated if: (i) $k \notin S_{\text{input}}$, 
+(ii) $k \notin W$, and (iii) $k \in S_2$ carrying an asserted value 
+indistinguishable from verified data.
 \end{definition}
 
-Under null uncertainty, a dimension $\omega \in W$ exists in the world 
-but is absent from the agent's state space. A cross-boundary rotation 
-$\rho(\omega)$ is in principle recoverable because ground truth exists 
-at the sender. Under hallucination, define the rotation function 
-$\rho: \Omega \to V$ as the measurement that acquires a value for 
-dimension $k$ from the originating system. For a hallucinated variable:
+The rotation function $\rho(k) = \text{undefined}$ for hallucinated 
+variables: no originating system holds ground truth for $k$.
 
-\begin{equation}
-    \rho(k) = \text{undefined}, \quad k \notin W
-\end{equation}
-
-The function is not unobserved. It is undefined. No originating system 
-holds ground truth for $k$ because $k$ was never in the world that 
-produced the input.
-
-\begin{proposition}[Hallucination Expands the State Space with 
-Unreferenced Dimensions]
+\begin{proposition}[Hallucination Expands the State Space]
 \label{prop:hallucination}
-Let $S_2^{\text{true}}$ be the state space the downstream agent would 
-occupy if all serialized variables had referents in $W$. Let 
-$H \subset S_2$ be the set of hallucinated dimensions. Then:
-\begin{equation}
-    S_2 = S_2^{\text{true}} \cup H, \qquad H \cap W = \emptyset
-\end{equation}
-The value function $\hat{V}(s_2)$ optimizes over $S_2$, which contains 
-both real dimensions (potentially null but recoverable by rotation) and 
-unreferenced dimensions with no world-state correspondence. No function 
-in $\mathcal{F}(S_2)$ distinguishes elements of $H$ from elements of 
-$S_2^{\text{true}}$.
+$S_2 = S_2^{\text{true}} \cup H$ where $H \cap W = \emptyset$. 
+No function in $\mathcal{F}(S_2)$ distinguishes elements of $H$ 
+from elements of $S_2^{\text{true}}$.
 \end{proposition}
 
 \begin{proof}
-By the closure property, any $f \in \mathcal{F}(S_2)$ operates over 
-$S_2$ and produces outputs derivable from $S_2$. Since both $H$ and 
-$S_2^{\text{true}}$ are subsets of $S_2$, and both carry asserted values 
-indistinguishable in format from verified data, no $f$ varies across the 
-partition $\{H, S_2^{\text{true}}\}$. The serialization boundary severed 
-provenance; $S_2$ contains $v_k$ but not the fact that $k \notin W$.
+Both $H$ and $S_2^{\text{true}}$ are subsets of $S_2$ carrying 
+values indistinguishable in format. Serialization severed provenance. 
+No $f \in \mathcal{F}(S_2)$ varies across the partition. \qed
 \end{proof}
 
-The four epistemic categories at the serialization boundary are now 
-fully characterized:
-
-\begin{table}[h]
-\centering
+\begin{center}\small
 \begin{tabular}{lccccc}
 \toprule
-\textbf{Category} & \textbf{Slot in $S_2$} & \textbf{Referent in $W$} 
-& \textbf{$\rho(k)$ defined} & \textbf{Recoverable} 
-& \textbf{Layer~2 epistemic state} \\
+\textbf{Category} & \textbf{Slot in $S_2$} & \textbf{In $W$} 
+& \textbf{$\rho$ defined} & \textbf{Recoverable} \\
 \midrule
-A (Asked)        & Yes & Yes & Yes & Yes & Defined \\
-D (Detected)     & No  & Yes & Yes & Yes & Null uncertainty \\
-U (Undetected)   & No  & Yes & Yes & Yes & Null uncertainty \\
-H (Hallucinated) & Yes & No  & No  & No  & Fictitious \\
+A (Asked)        & Yes & Yes & Yes & Yes \\
+D (Detected)     & No  & Yes & Yes & Yes \\
+U (Undetected)   & No  & Yes & Yes & Yes \\
+H (Hallucinated) & Yes & No  & No  & No \\
 \bottomrule
 \end{tabular}
-\caption{Epistemic categories at the serialization boundary. $D$ and 
-$U$ are behaviorally distinct at Layer~1 but produce identical epistemic 
-states at Layer~2: both result in null uncertainty, the absence of a 
-slot for $\omega$ in $S_2$. $H$ is structurally opposite to $D$ and 
-$U$: where they truncate $S_2$ by removing real dimensions, $H$ expands 
-$S_2$ with fictitious ones. The Bellman equation operating over $S_2$ 
-optimizes over a state space that is simultaneously truncated of real 
-dimensions ($D$, $U$) and populated with fictitious ones ($H$). Neither 
-failure is detectable from within $S_2$.}
-\end{table}
+\end{center}
 
 
-This has a direct consequence for the divergence gap $\Delta$ from 
-Lemma~\ref{thm:bellman}. That lemma assumed $V^*(s, \omega_1) \neq 
-V^*(s, \omega_2)$ for configurations in $\Omega$: two real states the 
-agent cannot distinguish. For hallucinated variables the gap has no such 
-structure. The Bellman equation does not converge to the wrong number 
-over a real state space. It converges over a state space that is 
-partially fictitious. The precondition for the equation to be meaningful 
---- that $s$ corresponds to a state in $W$ --- fails not by truncation 
-but by fabrication.
+%% ============================================================
+\section{Five Cases at Every Boundary}
+\label{sec:five-cases}
+%% ============================================================
 
-\begin{corollary}[Rotation Cannot Repair Hallucination]
-\label{cor:no-repair}
-Cross-boundary rotation is the recovery mechanism for null uncertainty. 
-It has no analogous repair for hallucinated variables. Coherence 
-coverage $C = |E|/N$ measures the fraction of real boundary facets 
-verified by rotation. Hallucinated dimensions are not boundary facets; 
-they originated inside the agent. They do not appear in 
-$N = \sum_{i=1}^{K} F_i \times 4$ and therefore do not reduce $C$ 
-when unverified. The liquid hypergraph has no absent edge for a 
-dimension that was never in the world.
-\end{corollary}
+Every serialization boundary operates in exactly one of five 
+verification regimes. Not choosing is Case~1.
 
-A complete audit metric in the presence of hallucination requires:
-\begin{equation}
-    C^* = \frac{|E|}{N + |H|}
-\end{equation}
-where $|H|$ is the count of hallucinated dimensions accumulated across 
-the pipeline. By the closure property, $|H|$ is uncomputable from within 
-$S_2$: the hallucinated dimensions are indistinguishable from real ones 
-inside the state space that contains them. This produces the sixth open 
-question (Section~\ref{sec:open}).
+Let $t_k$ be verification times, $\tau_k = t_{k+1} - t_k$ the 
+interval, and $\dot{\delta}_{AB}$ the codebook drift rate.
 
-\begin{question}[Hallucination-Adjusted Coverage]
-\label{q:hallucination}
-The metric $C^* = |E| / (N + |H|)$ requires knowing $|H|$, the count 
-of hallucinated dimensions accumulated across the pipeline. By the 
-closure property, $|H|$ is uncomputable from within $S_2$: hallucinated 
-dimensions are indistinguishable from real dimensions inside the state 
-space that contains them. Does there exist an audit procedure that 
-bounds $|H|$ from outside the pipeline without enumerating all possible 
-hallucinated variables? What is the relationship between $|H|$ and the 
-depth $L$ of the agent pipeline?
-\end{question}
+\textbf{Case 1 --- Absent.} $\tau_k = \infty$. No verification. 
+Null uncertainty from the first crossing.
+
+\textbf{Case 2 --- Snapshot.} One verification at $t_0$, then 
+$\tau_k = \infty$. Someone wrote a data dictionary once. It lives 
+in a wiki. No one has checked since.
+
+\textbf{Case 3 --- Intermittent.} $\tau_k = T$ for fixed $T > 0$. 
+Drift bounded by $\dot{\delta}_{AB} \cdot T$, but the bound is not 
+transmitted with the data.
+
+\textbf{Case 4 --- On Request.} Triggered by receiver query. By the 
+closure property, the receiver cannot query for dimensions they do 
+not know are missing. $U$ and $H$ fields generate no query signal. 
+On-request verification resolves known unknowns only.
+
+\textbf{Case 5 --- Continuous.} $\tau_k \to 0$. Verification at 
+every crossing. The only case where uncertainty is genuinely resolved.
+
+\textbf{The critical asymmetry:} Case~4 is epistemically more 
+dangerous than Case~3. It produces false confidence --- the receiver 
+asked, got an answer, and proceeds confidently. But they only asked 
+about what they knew to ask about. The confidence is the danger.
+
+\begin{center}\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \textbf{A} & \textbf{D} & \textbf{U} & \textbf{H} \\
+\midrule
+Case 1 --- Absent      & impossible & unresolved 
+& unresolved & undetectable \\
+Case 2 --- Snapshot    & at $t_0$ only & drifts 
+& unresolved & undetectable \\
+Case 3 --- Intermittent & at $t_k$ & bounded 
+& unresolved & undetectable \\
+Case 4 --- On Request  & possible & resolvable 
+& \textbf{unresolvable} & \textbf{undetectable} \\
+Case 5 --- Continuous  & always & resolved 
+& resolvable & detectable \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+%% ============================================================
+\section{The Reality Chain}
+\label{sec:reality-chain}
+%% ============================================================
+
+The serialization boundary extends from physical sensors to human 
+experience:
+
+\[
+\underset{\text{analog}}{\text{World}}
+\;\xrightarrow{\;C_{\text{sensor}}\;}
+\;\underset{\text{digital}}{\text{Signal}}
+\;\xrightarrow{\;C_{\text{model}}\;}
+\;\underset{\text{digital}}{\text{State}}
+\;\xrightarrow{\;C_{\text{agent}}\;}
+\;\underset{\text{digital}}{\text{Action}}
+\;\xrightarrow{\;C_{\text{UX}}\;}
+\;\underset{\text{analog}}{\text{Experience}}
+\]
+
+Each arrow is a serialization boundary. Each $C$ is a codebook that 
+does not cross with the data. Drift rates are heterogeneous:
+
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Boundary} & \textbf{Transition} & \textbf{Drift} 
+& \textbf{Typical verification} \\
+\midrule
+Sensor & Analog $\to$ digital & Slow (months) & Calibration \\
+Model  & Digital $\to$ digital & Medium (weeks) & Monitoring \\
+Agent  & Digital $\to$ digital & Fast (per-decision) & Reward audit \\
+UX     & Digital $\to$ analog & Fastest & Almost never \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A system verifying at the sensor boundary but not the UX boundary 
+is Case~5 at the slowest-drift boundary and Case~1 at the fastest.
+
+\textbf{Composite bound.} For a chain of $n$ boundaries with 
+individual entropies $H_1, \ldots, H_n$, each operating under 
+verification Case $c_i \in \{1, \ldots, 5\}$, the total unresolved 
+entropy is:
+\[
+H_{\text{chain}} = \sum_{i : c_i < 5} H_i
+\]
+Only boundaries at Case~5 contribute zero. The dominant term is the 
+highest-entropy unmonitored boundary. For most deployed systems, the 
+UX boundary is simultaneously the highest-drift, highest-entropy, 
+and least-monitored --- Case~1 at the point of maximum exposure.
+
+Whether the individual boundary entropies interact (correlations 
+between sensor codebook and model codebook reduce the joint space) 
+or compound independently is an open question 
+(Section~\ref{sec:open}).
+
+
+%% ============================================================
+\section{Metamathematical Note}
+\label{sec:metamath}
+%% ============================================================
+
+Every mathematical framework that operates over a state space has an 
+implicit precondition: the variables correspond to quantities in the 
+world. Call this the \emph{referential integrity precondition}. The 
+serialization boundary violates it universally. From the boundary, 
+one derives any formalism's failure mode mechanically:
+
+\begin{enumerate}
+    \item Identify the formalism's state space and its referential 
+    integrity precondition.
+    \item Introduce a serialization boundary: state transmits, 
+    codebook does not.
+    \item Apply the closure property: no function of the transmitted 
+    state recovers the codebook.
+    \item Derive the formalism-specific consequence.
+\end{enumerate}
+
+This paper applies the procedure rigorously to Bellman 
+(Lemma~\ref{thm:bellman}) and Kuramoto 
+(Proposition~\ref{prop:strogatz}). Section~\ref{sec:fault-line} 
+sketches its application to Nash, Kalman, and Shannon. Full 
+derivations for these three are conjectured applications; rigorous 
+treatment is future work.
+
+The claim is not depth within any single formalism --- the proofs 
+are short. The claim is universality: the boundary is where every 
+formalism's floor gives way, and it gives way for the same reason 
+every time.
 
 
 %% ============================================================
@@ -828,226 +738,301 @@ depth $L$ of the agent pipeline?
 \label{sec:comparison}
 %% ============================================================
 
-\subsection{Partially Observable Markov Decision Processes}
-
-A POMDP extends the MDP by introducing a hidden state variable and an observation function. The agent \emph{knows} the state is hidden and maintains a belief state $b(s)$ over the full state space $S$. It updates $b$ with each observation.
-
-\textbf{Where the boundary failure differs.} At Layer 2, the risk agent does not have a slot for $\omega_1$. Its belief state is $b_2(s_2)$, a distribution over $S_2$. Since $\omega_1 \notin S_2$, no belief over $S_2$ assigns probability to any value of $\omega_1$. The agent is not uncertain. It is unaware.
-
 \begin{center}\small
-\begin{tabular}{@{}lll@{}}
-\toprule
-& \textbf{POMDP} & \textbf{Boundary failure} \\
-\midrule
-Hidden variable $\omega$ & $\omega \in S$, unobserved & $\omega \notin S_2$ \\
-Belief state & $b(\omega) > 0$ for some $\omega$ & No $b$ over $\omega$ exists \\
-Recovery & Bayesian update on $\omega$ & None within $S_2$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsection{Unawareness in Epistemic Game Theory}
-
-Heifetz, Meier, and Schipper (2006, 2008) introduced generalized standard models: a lattice of state spaces $\{S_\alpha\}$ of differing expressive power. An agent inhabiting $S_\alpha$ is unaware of propositions that require $S_\beta \succ S_\alpha$. The agent does not know it does not know.
-
-\textbf{Relationship.} Layer 2's state space $S_2 \prec S_1$ along the codebook dimension. What we add: (1) the physical mechanism that produces the lattice (serialization), (2) a computable bound (7.22 bits, 150 configurations), (3) the decision-theoretic consequence ($\hat{V}$ diverges from $V^*$).
-
-\subsection{Model Misspecification}
-
-Standard diagnostics (residual analysis, Hausman tests) detect wrong parameters within a fixed state space. At the serialization boundary, the problem is a missing \emph{dimension}. Residuals $\varepsilon_t(\omega_1) = y_t(\omega_1) - \hat{y}_t(S_2)$ are constant across $\omega_1$ values because $\hat{y}_t$ is a function of $s_2$. The specification tests pass. The Hausman test has no variation to detect.
-
-\subsection{Decentralized POMDPs}
-
-Dec-POMDPs assume a shared state space and shared reward function. Agents disagree on observations, not on what state variables mean. At the serialization boundary, the message has been received. Its meaning may not have been.
-
-\subsection{The Gap This Paper Fills}
-
-\begin{center}\small
-\begin{tabular}{@{}lp{8.5cm}@{}}
+\begin{tabular}{@{}lp{7cm}@{}}
 \toprule
 \textbf{Formalism} & \textbf{What the agent lacks} \\
 \midrule
-POMDP & Observation of a known variable \\
-HMS Unawareness & Expressibility of a proposition in its language \\
+POMDP & Observation of a known variable ($\omega \in S$, unobserved) \\
+HMS Unawareness & Expressibility of a proposition ($\omega$ outside 
+language) \\
 Misspecification & Correct parameters within a fixed state space \\
 Dec-POMDP & Another agent's private observation \\
 \midrule
-\textbf{This paper} & A dimension in its state space, destroyed by serialization, undetectable from within, producing a computable divergence in $\hat{V}$ \\
+\textbf{This paper} & A dimension in its state space, destroyed by 
+serialization ($\omega \notin S_2$) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection{Null Uncertainty}
+The distinction from model misspecification is precise: 
+misspecification means the dimension is in the state space with wrong 
+parameters. Null uncertainty means the dimension is not in the state 
+space at all. Specification tests (e.g., Hausman) require variation 
+across the parameter. When the parameter does not exist in $S_2$, 
+there is no variation to detect.
 
-The epistemic category is \textbf{null uncertainty} (Itelman, 2026): a state in which the missing variable is irrecoverable from within the agent's state space and recoverable only by paying the cost of a cross-boundary measurement (rotation).
+\textbf{Data integration, schema matching, and ontology alignment} 
+have addressed codebook mismatch for decades~\cite{rahm2001, 
+euzenat2007, goh1999}. Their shared precondition is that both 
+codebooks are accessible --- surfaced as schemas, ontologies, or 
+formal context axioms --- before reconciliation begins. At boundaries 
+where codebooks have not been surfaced, these tools have nothing to 
+operate on. A practitioner may ask: ``Why isn't this just what ETL 
+engineers do?'' The answer: ETL engineers perform informal rotations 
+at boundaries they know about. They cannot inventory boundaries they 
+do not know about, make their verifications machine-readable, or 
+scale to agent-paced operation. This paper formalizes the informal 
+process, makes its outputs computable, and identifies the structural 
+limits of within-system diagnosis.
 
-\begin{center}\small
-\begin{tabular}{@{}llll@{}}
-\toprule
-\textbf{Level} & \textbf{Agent has} & \textbf{Recovery} 
-& \textbf{Produced by} \\
-\midrule
-Known unknown   & Variable with unknown value; can assign prior 
-                & Update within $S$ & --- \\
-Unknown unknown & Slot exists or could exist; agent may sense gap 
-                & Identify, then update & --- \\
-Null uncertainty & No slot, no variable, no prior; $\omega \notin S$ 
-                & Cross-boundary rotation & $D$ or $U$ at Layer~1 \\
-Fictitious      & Slot exists, no referent in $W$; $\rho(k)$ undefined 
-                & None & $H$ at Layer~1 \\
-\bottomrule
-\end{tabular}
-\end{center}
 
-\noindent Null uncertainty is produced by both $D$ and $U$ scoring at 
-Layer~1. This is the non-obvious result the taxonomy makes precise: an 
-agent that detects every ambiguity ($D$ on every field) is 
-epistemically equivalent to an agent that detects nothing ($U$ on every 
-field), from the perspective of the downstream agent. Detection without 
-rotation does not prevent null uncertainty. Only rotation does.
+%% ============================================================
+\section{Reference Implementation}
+\label{sec:implementation}
+%% ============================================================
 
-The Bellman equation's failure at the serialization boundary is the decision-theoretic consequence of null uncertainty. The value function converges --- to the wrong number. Every diagnostic confirms it.
+The theoretical claims are operationalized in a running instrument. 
+The Bellman panel computes $H_{\text{total}}$ in real time from 
+agent responses, scores each field A/D/U/H, maintains separate 
+counters for Rotations, Undetected, and $|H|$, and displays 
+Layer~2 inherited entropy as structurally invisible to the 
+downstream agent.
+
+Across demonstration runs of the same CSV:
+
+\begin{itemize}
+    \item $H_{\text{total}}$ matched the pre-computed answer key 
+    (7.22 bits) on every run.
+    \item ROTATIONS: 0/4 across all runs. No agent asked a 
+    clarifying question.
+    \item $|H| \geq 1$ on every run. Hallucinated fields included 
+    \texttt{account\_authorization}, \texttt{credit\_limit\_check}, 
+    and \texttt{account\_buying\_power}.
+    \item Execution variance: shares executed ranged from 95,969 to 
+    413,487. Price per unit ranged from SGD 3.245 to SGD 10.42. All 
+    runs reported FILLED.
+\end{itemize}
+
+Anyone can reproduce this by sending the CSV to any language model 
+with the system prompt in Section~\ref{sec:experiment} and scoring 
+against the answer key.
 
 
 %% ============================================================
 \section{What This Is Not}
 %% ============================================================
 
-\textbf{Not a prompt engineering failure.} No prompt can cause the agent to distinguish codebook configurations identical in the received data.
+\textbf{Not a prompt engineering failure.} No prompt causes the 
+agent to distinguish codebook configurations identical in the data.
 
-\textbf{Not a POMDP.} The agent has no slot for $\omega$. It is not uncertain. It is unaware.
+\textbf{Not a POMDP.} The agent has no slot for $\omega$.
 
-\textbf{Not model misspecification.} Every diagnostic is a function of $S_2$ and returns ``everything is fine.''
+\textbf{Not model misspecification.} Every diagnostic is a function 
+of $S_2$ and returns ``everything is fine.''
 
-\textbf{Not a data quality problem.} The data is syntactically perfect. Valid data and correct data are not the same thing.
+\textbf{Not a data quality problem.} The data is syntactically 
+perfect. Valid data and correct data are not the same thing.
 
+
+%% ============================================================
+\section{Anticipated Objections}
+\label{sec:objections}
+%% ============================================================
+
+\textbf{Objection 1: ``Bellman isn't breaking. This is model 
+misspecification.''}
+
+Model misspecification means a dimension is in the state space 
+with wrong parameters: temperature is a variable in your model but 
+with the wrong prior. Null uncertainty means the dimension is not 
+in the state space at all: temperature is not a variable because 
+serialization destroyed it. The distinction is testable. Residual 
+analysis and specification tests (e.g., Hausman) detect 
+misspecification because the misspecified parameter produces 
+variation in the residuals. When the parameter does not exist in 
+$S_2$, there is no variation to detect. Every diagnostic returns 
+``everything is fine.'' 
+
+\emph{Challenge:} Produce a specification test that detects a 
+variable absent from the state space.
+
+\textbf{Objection 2: ``The data integration literature already 
+covers this.''}
+
+Schema matching~\cite{rahm2001} requires both schemas. Ontology 
+alignment~\cite{euzenat2007} requires both ontologies. Context 
+interchange~\cite{goh1999} requires formal context axioms from 
+both sides. These frameworks address codebook mismatch when both 
+codebooks are surfaced. The specific contribution of this paper is 
+the formalization of what happens when codebooks have not been 
+surfaced --- the runtime condition where the mismatch is invisible 
+because neither side has articulated their codebook, and no 
+within-system diagnostic can detect the absence.
+
+\emph{Challenge:} Produce the prior formalization of unsurfaced 
+codebook mismatch at runtime serialization boundaries.
+
+\textbf{Objection 3: ``The lemma is trivial. The formalism is 
+disproportionate.''}
+
+The lemma is trivial. That is the point. A two-line proof that 
+cannot be argued with is stronger than a deep proof with 
+assumptions to attack. The contribution is not the depth of any 
+single derivation but the universality: the same two-line proof 
+derives the failure mode for Bellman (Lemma~\ref{thm:bellman}), 
+Kuramoto (Proposition~\ref{prop:strogatz}), and --- via the 
+four-step traversal procedure (Section~\ref{sec:metamath}) --- for 
+any formalism with a referential integrity precondition. The 
+five-column gauge is not an analogy. It is a running protocol 
+with a W3C community group, dereferenceable URIs, and a reference 
+implementation~\cite{itelman2026lh}.
+
+\textbf{Objection 4: ``The 7.22 bits is stipulated, not derived.''}
+
+Correct. The specific $|\Omega_i|$ values are design choices, 
+acknowledged in Section~\ref{sec:answer}. The claim is not that 
+7.22 is derived from first principles. The claim is that 
+$H_{\text{total}} > 0$ for any plausible reading of this 
+stimulus: any analyst examining \texttt{4/5/2026} in a CSV with no 
+metadata will agree $|\Omega| \geq 2$. The specific value is an 
+instantiation. The bound's existence is a consequence of the 
+closure property, not of the enumeration.
+
+\textbf{Objection 5: ``Just model it as a POMDP with $\omega$ in the 
+state space.''}
+
+Adding the codebook variable to the state space is the solution. 
+Knowing you need to add it is the problem. Modeling the boundary as 
+a POMDP with $\omega \in S$ presupposes that the agent knows $\omega$ 
+exists --- which is precisely what null uncertainty forecloses. The 
+agent at Layer~2 has no slot for $\omega$, no signal that $\omega$ 
+was ever relevant, and no procedure that surfaces the need for it 
+from within $S_2$. The POMDP reformulation is correct \emph{after} 
+the rotation has been performed. It is unavailable before.
+
+\emph{Challenge:} Produce the procedure that tells the agent which 
+variables to add to its state space, from within $S_2$.
+
+\textbf{Objection 6: ``The experiment is a demonstration, not a 
+test.''}
+
+Correct. The paper states this explicitly: both demonstrations are 
+proofs of mechanism, not proofs of claim. The empirical contribution 
+is not the CSV. It is the reference implementation 
+(Section~\ref{sec:implementation}): a running instrument that 
+computes $H_{\text{total}}$ in real time, scores ADUH per field, 
+catches hallucinations live, and matches the pre-computed answer key 
+on every run. Production validation across real system boundaries is 
+future work. The instrument exists. The measurement is the work.
+
+
+%% ============================================================
 \section{Falsification Criteria}
+%% ============================================================
 
-The following criteria apply to the core lemma and the four-category 
-scoring framework. A result satisfying any criterion constitutes a 
-falsification of the corresponding claim.
-
-\textbf{Null uncertainty falsification:}
+\textbf{Null uncertainty:}
 \begin{enumerate}
   \item Produce a function of the received CSV alone that determines 
-  which date format the sender intended.
-  \item Demonstrate that the Layer~2 risk agent can detect the date 
-  was ambiguous at Layer~1, given only Layer~1's JSON output.
-  \item Show that $\Delta = 0$ for all configuration pairs in this 
-  stimulus.
-  \item Produce a Layer~2 agent that achieves date accuracy 
-  significantly above 50\% without access to the original CSV.
+  the sender's date format.
+  \item Demonstrate that the Layer~2 agent can detect the date was 
+  ambiguous, given only Layer~1's JSON.
+  \item Show $\Delta = 0$ for all configuration pairs.
+  \item Produce a Layer~2 agent with date accuracy above 50\% without 
+  access to the original CSV.
 \end{enumerate}
 
-\textbf{Hallucination falsification:}
+\textbf{Hallucination:}
 \begin{enumerate}[resume]
-  \item Produce a Layer~2 agent that correctly identifies, from the 
-  serialized JSON alone, which fields in its input have no referent 
-  in the originating world state $W$ --- without access to the 
-  original CSV or any out-of-band signal from the sender.
-  \item Produce a within-system audit procedure that computes a tight 
-  bound on $|H|$ --- the count of hallucinated dimensions in the 
-  pipeline --- without querying the originating system for each field.
+  \item Produce a Layer~2 agent that identifies which fields have no 
+  referent in $W$, from the JSON alone.
+  \item Produce a within-system audit that bounds $|H|$ without 
+  querying the originating system.
 \end{enumerate}
 
-\textbf{D/U equivalence falsification:}
+\textbf{D/U equivalence:}
 \begin{enumerate}[resume]
   \item Produce a Layer~2 epistemic state that differs between a 
-  pipeline where Layer~1 scored $D$ on every field and one where 
-  Layer~1 scored $U$ on every field, given identical serialized 
-  outputs.
+  $D$-on-all pipeline and a $U$-on-all pipeline, given identical 
+  serialized outputs.
 \end{enumerate}
 
+
+%% ============================================================
 \section{Open Questions}
 \label{sec:open}
+%% ============================================================
 
 \begin{question}[Recursive Boundary Detection]
 Does there exist a function $g: S \to \{0, 1\}$ computable from $s$ 
 alone such that $g(s) = 1$ iff $|\Omega| \leq R$?
 \end{question}
 
-\begin{question}[Symmetry Breaking as a Diagnostic]
-Is discontinuity in $\pi^*(s)$ under small perturbations of $s$ a 
-reliable indicator that $|\Omega| > R$?
-\end{question}
-
 \begin{question}[Bellman with a Boundary Term]
 \[
-\tilde{V}(s) = \max_{a \in A} \left[ R(s, a) - \lambda\, H(\Omega | s) 
-+ \gamma\, \tilde{V}(s') \right]
+\tilde{V}(s) = \max_{a \in A} \left[ R(s, a) - \lambda\, 
+H(\Omega | s) + \gamma\, \tilde{V}(s') \right]
 \]
-Is this well-defined? Does it converge? Does it produce useful 
-policies?
+Is this well-defined? Does it converge?
 \end{question}
 
-\begin{question}[Compounding Bounds]
-Does uncertainty compound additively ($\sum H_k$) or multiplicatively 
-($\prod |\Omega_k|$)? Under what conditions does it stabilize versus 
-diverge?
+\begin{question}[Minimum Viable Provenance and the Converse Theorem]
+What is the minimum number of bits that must cross the serialization 
+boundary to prevent Bellman failure? A tight lower bound would be the 
+structural parallel to Shannon's noisy coding theorem. The entropy 
+bound $H_{\text{total}}$ is a candidate. Whether it is tight --- 
+both necessary and sufficient --- is the open question that would 
+complete the structural parallel to information theory.
 \end{question}
 
-\begin{question}[Minimum Viable Provenance]
-What is the minimum information that must cross the serialization 
-boundary to prevent Bellman failure at the next layer?
+\begin{question}[Coupling Strength and the Rotation Threshold]
+Does there exist a Kuramoto-type model for decision coherence in 
+which the rotation cost plays the role of coupling strength? Is there 
+a critical rotation rate above which agent networks achieve codebook 
+coherence?
 \end{question}
 
 \begin{question}[Hallucination-Adjusted Coverage]
-\label{q:hallucination-open}
-The metric $C^* = |E| / (N + |H|)$ requires knowing $|H|$, the count 
-of hallucinated dimensions accumulated across the pipeline. By the 
-closure property, $|H|$ is uncomputable from within $S_2$: 
-hallucinated dimensions are indistinguishable from real dimensions 
-inside the state space that contains them. Does there exist an audit 
-procedure that bounds $|H|$ from outside the pipeline without 
-enumerating all possible hallucinated variables? What is the 
-relationship between $|H|$ and the pipeline depth $L$? Does $|H|$ 
-grow monotonically with $L$ in the way that inherited null entropy 
-$H_L^{\text{inh}}$ does?
+$C^* = |E| / (N + |H|)$ requires knowing $|H|$, which is 
+uncomputable from within $S_2$. Does there exist an audit procedure 
+that bounds $|H|$ from outside the pipeline?
 \end{question}
 
+\begin{question}[The Full Reality Chain]
+The sensor-to-user pipeline contains boundaries with heterogeneous 
+drift rates. Is there a composite entropy bound for the full chain? 
+For the UX boundary: is the codebook of human interpretation 
+expressible in a form that admits $|\Omega|$ enumeration?
+\end{question}
+
+\begin{question}[Traversal Completeness]
+Is the referential integrity precondition the unique shared 
+precondition across all formalisms that fail at the serialization 
+boundary? Can it be axiomatized independently, producing a 
+metatheory from which all formalism-specific results follow?
+\end{question}
+
+
+%% ============================================================
 \section{Conclusion}
+%% ============================================================
 
 The Bellman equation's preconditions for meaningful operation are 
 destroyed at the serialization boundary between agents. The mechanism 
-is not noise, partial observation, or modeling error --- it is 
-serialization itself: the act of writing assumptions into structured 
-data collapses ambiguity into false certainty, severs provenance, and 
-simultaneously truncates the downstream agent's state space of real 
-dimensions and populates it with fictitious ones.
+is serialization itself: writing assumptions into structured data 
+collapses ambiguity into false certainty, severs provenance, and 
+simultaneously truncates the downstream state space of real dimensions 
+and populates it with fictitious ones.
 
-The primary contributions of this paper are three. First, a four-category 
-scoring framework --- Asked ($A$), Detected ($D$), Undetected ($U$), 
-Hallucinated ($H$) --- that characterizes how agents fail at 
-serialization boundaries with precision sufficient for empirical 
-measurement. Second, the non-obvious result that $D$ and $U$ are 
-behaviorally distinct at Layer~1 but epistemically equivalent at 
-Layer~2: an agent fully aware of every ambiguity produces the same 
-downstream null uncertainty as one aware of nothing. Detection without 
-rotation does not prevent null uncertainty. Only rotation does. Third, 
-the $H$ category and its consequences: hallucinated dimensions expand 
-the downstream state space with variables that have no referent in the 
-world state, the rotation function $\rho(k)$ is undefined for these 
-dimensions, and no recovery mechanism exists. This breaks not only the 
-Bellman equation but the rotation-based repair protocol proposed in 
-the companion work~\cite{itelman2026lh}, requiring a 
-hallucination-adjusted coverage metric $C^*$ that is itself 
-uncomputable from within the pipeline.
+The primary contributions are the closure property as the 
+load-bearing claim, the ADUH scoring taxonomy as its empirical 
+instrument, the D/U equivalence result as its most non-obvious 
+consequence, and the Strogatz Inversion as its dynamic extension. 
+The converse theorem --- a tight lower bound on cross-boundary 
+provenance --- is the next result.
 
-The demonstration is minimal by design: one CSV, two agents, a 
-scoring checklist, and an answer key computable before any agent runs 
-(7.22 bits, 4 required rotations, 150 indistinguishable 
-configurations). The $H$ category was not predicted in advance --- it 
-emerged during formalization of the scoring criteria and was confirmed 
-on the first demonstration run. Items 11--13 on the checklist are the 
-critical test for null uncertainty. Item~9 is the critical test for 
-hallucination. The falsification criteria in Section~10 apply 
-independently to each.
+The reference implementation demonstrates that the instrument runs, 
+the predictions hold, and the problem is not theoretical. Production 
+validation --- applying the ADUH framework to real system boundaries 
+--- is the natural next step. The instrument exists. The measurement 
+is the work.
 
 All claims carry falsification criteria. The abandonment conditions 
 are stated. We invite correction.
 
 \bigskip
-\noindent\textbf{Reproducibility.} \url{https://w3c-context-graph-community-group.github.io/protocol/}
+\noindent\textbf{Reproducibility.} 
+\url{https://w3c-context-graph-community-group.github.io/protocol/}
 
 
 %% ============================================================
@@ -1057,37 +1042,59 @@ are stated. We invite correction.
 Bellman, R. (1957). \emph{Dynamic Programming}. Princeton University Press.
 
 \bibitem{shannon1948}
-Shannon, C.E. (1948). A mathematical theory of communication. \emph{Bell System Technical Journal}, 27(3), 379--423.
+Shannon, C.E. (1948). A mathematical theory of communication. 
+\emph{Bell System Technical Journal}, 27(3), 379--423.
 
 \bibitem{knight1921}
-Knight, F.H. (1921). \emph{Risk, Uncertainty, and Profit}. Houghton Mifflin.
+Knight, F.H. (1921). \emph{Risk, Uncertainty, and Profit}. 
+Houghton Mifflin.
 
 \bibitem{hms2006}
-Heifetz, A., Meier, M., \& Schipper, B.C. (2006). Interactive unawareness. \emph{J.\ Econ.\ Theory}, 130(1), 78--94.
-
-\bibitem{modica1994}
-Modica, S.\ \& Rustichini, A. (1994). Awareness and partitional information structures. \emph{Theory and Decision}, 37(1), 107--124.
-
-\bibitem{modica1999}
-Modica, S.\ \& Rustichini, A. (1999). Unawareness and partitional information structures. \emph{Games and Economic Behavior}, 27(2), 265--298.
+Heifetz, A., Meier, M., \& Schipper, B.C. (2006). Interactive 
+unawareness. \emph{J.\ Econ.\ Theory}, 130(1), 78--94.
 
 \bibitem{hansen2008}
-Hansen, L.P.\ \& Sargent, T.J. (2008). \emph{Robustness}. Princeton University Press.
+Hansen, L.P.\ \& Sargent, T.J. (2008). \emph{Robustness}. 
+Princeton University Press.
 
 \bibitem{bernstein2002}
-Bernstein, D.S., Givan, R., Immerman, N., \& Zilberstein, S. (2002). The complexity of decentralized control of MDPs. \emph{Math.\ Oper.\ Res.}, 27(4), 819--840.
+Bernstein, D.S., Givan, R., Immerman, N., \& Zilberstein, S. (2002). 
+The complexity of decentralized control of MDPs. \emph{Math.\ Oper.\ 
+Res.}, 27(4), 819--840.
 
 \bibitem{itelman2026lh}
-Itelman, R. \& Kowalski, J. (2026). Liquid Hypergraphs: A Context Graph Protocol. Working paper.
+Itelman, R. \& Kowalski, J. (2026). Liquid Hypergraphs: A Context 
+Graph Protocol. Working paper.
 
 \bibitem{itelman2026null}
-Itelman, R. (2026). Decisions Under Null Uncertainty. Working paper. Zenodo: 19192949.
+Itelman, R. (2026). Decisions Under Null Uncertainty. Working paper.
 
-\bibitem{kowalski2026}
-Kowalski, J. (2026). Hierarchical metric flow on data graphs. Working paper.
+\bibitem{rahm2001}
+Rahm, E.\ \& Bernstein, P.A. (2001). A survey of approaches to 
+automatic schema matching. \emph{The VLDB Journal}, 10(4), 334--350.
 
-\bibitem{gupta2026}
-Gupta, J. \& Garg, A. (2026). The compounding asset enterprise software never had. Foundation Capital.
+\bibitem{euzenat2007}
+Euzenat, J.\ \& Shvaiko, P. (2007). \emph{Ontology Matching}. 
+Springer, Heidelberg.
+
+\bibitem{goh1999}
+Goh, C.H., Bressan, S., Madnick, S.E., \& Siegel, M.D. (1999). 
+Context interchange: New features and formalisms for the intelligent 
+integration of information. \emph{ACM Trans.\ Inf.\ Syst.}, 17(3), 
+270--293.
+
+\bibitem{strogatz2003}
+Strogatz, S.H. (2003). \emph{Sync: The Emerging Science of 
+Spontaneous Order}. Hyperion.
+
+\bibitem{kuramoto1984}
+Kuramoto, Y. (1984). \emph{Chemical Oscillations, Waves, and 
+Turbulence}. Springer, Berlin.
+
+\bibitem{farquhar2024}
+Farquhar, S., Kossen, J., Kuhn, L., \& Gal, Y. (2024). Detecting 
+hallucinations in large language models using semantic entropy. 
+\emph{Nature}, 630, 625--630.
 
 \end{thebibliography}
 

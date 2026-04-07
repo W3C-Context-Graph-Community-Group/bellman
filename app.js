@@ -7,6 +7,9 @@ import Ajv from 'ajv';
 import llmService from './routes/api/llm_service.js';
 import semanticSuperposition from './routes/api/semantic_superposition.js';
 import bellmanClassifier from './routes/api/bellman_classifier.js';
+import polytopeRoutes from './routes/api/polytope.js';
+import reportRoutes from './routes/api/report.js';
+import logService from './services/log/index.js';
 import secRoutes from './routes/sec.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,6 +17,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BOOT_ID = Date.now().toString();
 
 // Read failure_modes.json once at startup
 const failureModes = JSON.parse(
@@ -59,6 +63,11 @@ app.get('/layer/:num', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'resizers.html'));
 });
 
+// Audit report
+app.get('/report', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'report.html'));
+});
+
 // SEC filings browser
 app.use('/sec', secRoutes);
 
@@ -66,6 +75,19 @@ app.use('/sec', secRoutes);
 app.use('/api/llm', llmService);
 app.use('/api/semantic_superposition', semanticSuperposition);
 app.use('/api/bellman', bellmanClassifier);
+app.use('/api/polytope', polytopeRoutes);
+app.use('/api/report', reportRoutes);
+app.use('/services/log', logService);
+
+// Serve polytope-viz built dist at /interpretation-space
+app.use('/interpretation-space', express.static(path.join(__dirname, 'polytope-viz', 'dist')));
+app.get('/interpretation-space/*path', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'polytope-viz', 'dist', 'index.html'));
+});
+
+app.get('/api/boot', (_req, res) => {
+  res.json({ bootId: BOOT_ID });
+});
 
 app.get('/api/failure-modes', (req, res) => {
   res.json(failureModes);

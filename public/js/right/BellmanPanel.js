@@ -34,6 +34,7 @@ export class BellmanPanel {
     await Promise.all([
       this._fetchSuperpositions(),
       this._fetchFailureModes(),
+      this._checkBoot(),
     ]);
     this._initScores();
     this._renderLayer0();
@@ -79,6 +80,21 @@ export class BellmanPanel {
       this.failureModes = await res.json();
     } catch (e) {
       console.error('Failed to load failure modes:', e);
+    }
+  }
+
+  async _checkBoot() {
+    try {
+      const res = await fetch('/api/boot');
+      const { bootId } = await res.json();
+      const prev = localStorage.getItem('bellman_boot_id');
+      if (prev && prev !== bootId) {
+        localStorage.removeItem('bellman_scores');
+        localStorage.removeItem('bellman_layer2_scores');
+      }
+      localStorage.setItem('bellman_boot_id', bootId);
+    } catch (e) {
+      console.error('Failed to check boot ID:', e);
     }
   }
 
@@ -147,6 +163,24 @@ export class BellmanPanel {
     eventBus.on('message:sent', () => this.reset());
     eventBus.on('layer2:response', (data) => this._handleLayer2Response(data));
     eventBus.on('bellman:classified', (data) => this._handleClassified(data));
+
+    // Sync when ChatPanel dropdown changes layer
+    eventBus.on('prompt:layerChanged', ({ layer }) => {
+      if (this.activeLayer === layer) return;
+      this._applyLayerView(layer);
+      history.replaceState(null, '', `/layer/${layer}`);
+    });
+
+    // Browser back/forward
+    window.addEventListener('popstate', () => this._handlePopState());
+  }
+
+  _handlePopState() {
+    const m = window.location.pathname.match(/\/layer\/(\d+)/);
+    const layer = m ? Number(m[1]) : 0;
+    if (this.activeLayer === layer) return;
+    this._applyLayerView(layer);
+    eventBus.emit('bellman:layerChanged', { layer });
   }
 
   _handleClassified({ classifications }) {
@@ -219,22 +253,12 @@ export class BellmanPanel {
   }
 
   reset() {
-    this.activeLayer = 0;
     this.scores = new Map();
     this.layer2Scores = new Map();
     this.recommendations = new Map();
     this.layer2HasResponse = false;
     this.layer2DynamicFields = null;
     this._initScores();
-
-    // Reset tab visuals
-    this.panel.querySelectorAll('.bellman-tab').forEach((t) => {
-      t.classList.toggle('bellman-tab--active', Number(t.dataset.layer) === 0);
-    });
-
-    this._layer0El.classList.add('bellman-layer--active');
-    this._layer1El.classList.remove('bellman-layer--active');
-    this._layer2El.classList.remove('bellman-layer--active');
 
     this._renderLayer0();
     this._renderLayer1Fields();
@@ -505,6 +529,10 @@ export class BellmanPanel {
     // Toggle: clicking the same grade again unscores
     scoreMap.set(fieldKey, current === grade ? null : grade);
 
+    // Persist to localStorage for cross-tab audit report
+    localStorage.setItem('bellman_scores', JSON.stringify(Object.fromEntries(this.scores)));
+    localStorage.setItem('bellman_layer2_scores', JSON.stringify(Object.fromEntries(this.layer2Scores)));
+
     // Re-render the active layer's fields
     if (scoreMap === this.scores) {
       this._renderLayer1Fields();
@@ -518,7 +546,7 @@ export class BellmanPanel {
   /*  Layer switching                                                 */
   /* ================================================================ */
 
-  _switchLayer(num) {
+  _applyLayerView(num) {
     this.activeLayer = num;
 
     this.panel.querySelectorAll('.bellman-tab').forEach((t) => {
@@ -529,8 +557,13 @@ export class BellmanPanel {
     this._layer1El.classList.toggle('bellman-layer--active', num === 1);
     this._layer2El.classList.toggle('bellman-layer--active', num === 2);
 
-    history.pushState(null, '', `/layer/${num}`);
     this._renderScoreboard();
+  }
+
+  _switchLayer(num) {
+    this._applyLayerView(num);
+    history.pushState(null, '', `/layer/${num}`);
+    eventBus.emit('bellman:layerChanged', { layer: num });
   }
 
   /* ================================================================ */
@@ -724,7 +757,7 @@ export class BellmanPanel {
           <tr><td><strong>Entropy</strong></td><td>Remaining information-theoretic uncertainty in bits. Computed as &Sigma; log&#8322;|&Omega;<sub>i</sub>| for <em>Detected</em> and <em>Undetected</em> fields only. <em>Asked</em> reduces entropy. <em>Hallucinated</em> fields are excluded &mdash; they are not configurations within &Omega; and must be tracked separately as |H|.</td></tr>
           <tr><td><strong>Rotations</strong></td><td>Number of fields graded <em>Asked</em>. These are the cross-boundary measurements that close ambiguity.</td></tr>
           <tr><td><strong>Undetected</strong></td><td>Count of fields the agent silently assumed. These produce null uncertainty at Layer 2.</td></tr>
-          <tr><td><strong>|H|</strong></td><td>Count of hallucinated fields. Tracked separately from entropy. Feeds C* not H_total.</td></tr>
+          <tr><td><strong>|H|</strong></td><td>Count of hallucinated fields. Tracked separately from entropy. Tracked separately from entropy. Required for C* (paper &sect;7.5, Open Question 6 &mdash; not yet computable).</td></tr>
         </tbody>
       </table>
     `;

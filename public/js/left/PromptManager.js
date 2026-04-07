@@ -104,7 +104,9 @@ export class PromptManager {
 
     // Layer 2 chains from Layer 1 output
     if (n === 2) {
-      return this._outputs.get(1) || '';
+      const layer1Output = this._outputs.get(1);
+      if (!layer1Output) return '';
+      return `Please assess the risk exposure from this executed trade and recommend hedging actions:\n${layer1Output}`;
     }
 
     return layerDef.default_user_prompt || '';

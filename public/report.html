@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bellman Audit Report</title>
+  <link rel="stylesheet" href="/css/report/report.css">
+</head>
+<body>
+  <div class="report-header">
+    <div>
+      <h1><span id="live-dot" class="live-dot"></span>Bellman Audit Report</h1>
+      <div class="report-subtitle">Live alignment check: code vs. main.tex</div>
+    </div>
+    <div class="report-subtitle">Auto-refreshes when scores change</div>
+  </div>
+
+  <div id="report-root">
+    <p class="report-no-scores">Loading audit rules...</p>
+  </div>
+
+  <script type="module" src="/js/report/AuditReport.js"></script>
+</body>
+</html>
