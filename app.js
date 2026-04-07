@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import Ajv from 'ajv';
 import llmService from './routes/api/llm_service.js';
+import semanticSuperposition from './routes/api/semantic_superposition.js';
 import secRoutes from './routes/sec.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,6 +13,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Read failure_modes.json once at startup
+const failureModes = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'data', 'failure_modes.json'), 'utf-8')
+);
 
 // View engine
 app.set('view engine', 'pug');
@@ -33,6 +40,11 @@ app.use('/sec', secRoutes);
 
 // API routes
 app.use('/api/llm', llmService);
+app.use('/api/semantic_superposition', semanticSuperposition);
+
+app.get('/api/failure-modes', (req, res) => {
+  res.json(failureModes);
+});
 
 app.get('/api/prompt', (req, res) => {
   res.sendFile(path.join(__dirname, 'data', 'prompt.txt'));

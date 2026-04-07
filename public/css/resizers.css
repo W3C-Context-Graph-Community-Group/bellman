@@ -78,6 +78,8 @@ body.resizer-page {
   background: #fff;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .docs-modal-close {
@@ -103,11 +105,13 @@ body.resizer-page {
 .docs-modal-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2.5rem 4rem;
   font-size: 15px;
   line-height: 1.7;
   color: #1f2937;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -117,8 +121,9 @@ body.resizer-page {
 .docs-modal-body pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 13px; }
 .docs-modal-body code { background: #f3f4f6; padding: 0.15rem 0.35rem; border-radius: 3px; font-size: 0.9em; }
 .docs-modal-body pre code { background: none; padding: 0; }
-.docs-modal-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-.docs-modal-body th, .docs-modal-body td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 13px; }
+.docs-modal-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; table-layout: fixed; }
+.docs-modal-body th, .docs-modal-body td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 13px; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+.docs-modal-body th:first-child, .docs-modal-body td:first-child { white-space: nowrap; }
 .docs-modal-body th { background: #f9fafb; font-weight: 600; }
 .docs-modal-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
 .docs-modal-body blockquote { border-left: 3px solid #d1d5db; margin: 1rem 0; padding: 0.5rem 1rem; color: #6b7280; }

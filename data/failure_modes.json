@@ -1,0 +1,77 @@
+{
+  "scoring_categories": {
+    "A": {
+      "label": "Asked",
+      "layer_1": {
+        "definition": "The agent detected the ambiguity and requested clarification from the sender before proceeding. A cross-boundary measurement was made. The ambiguity was resolved before serialization.",
+        "serialization_output": "Verified value with known provenance.",
+        "example": "Agent asks: is 4/5 April 5th or May 4th?"
+      },
+      "layer_2": {
+        "epistemic_state": "Defined",
+        "definition": "A slot exists in S2 for this dimension and the value was verified at Layer 1. No null uncertainty introduced.",
+        "rho_defined": true
+      }
+    },
+    "D": {
+      "label": "Detected",
+      "layer_1": {
+        "definition": "The agent detected the ambiguity, named it explicitly in its output, but selected a default interpretation and proceeded without requesting clarification. No cross-boundary measurement was made.",
+        "serialization_output": "Resolved value with prose acknowledgment of alternatives in reasoning trace. The ambiguity does not cross the boundary — only the chosen value does.",
+        "example": "Agent notes SGX could mean exchange name, ticker, or index product, then assumes index product and proceeds."
+      },
+      "layer_2": {
+        "epistemic_state": "Null uncertainty",
+        "definition": "Despite Layer 1 naming the ambiguity, S2 contains no slot for the codebook dimension omega. The reasoning trace prose is not a slot. The chosen value is indistinguishable from a verified value. Null uncertainty is present even though Layer 1 was aware.",
+        "rho_defined": true,
+        "rho_recoverable": true,
+        "note": "Detected at Layer 1 does not prevent null uncertainty at Layer 2. It only makes the failure auditable in retrospect if the reasoning trace is read and acted on."
+      }
+    },
+    "U": {
+      "label": "Undetected",
+      "layer_1": {
+        "definition": "The agent did not detect the ambiguity. It selected an interpretation and serialized it as fact with no record that a choice was made. The ambiguity is invisible in the output.",
+        "serialization_output": "Resolved value with no provenance, no alternatives, no signal that interpretation occurred.",
+        "example": "Agent writes date: 2026-04-05 with no mention that 4/5 was ambiguous."
+      },
+      "layer_2": {
+        "epistemic_state": "Null uncertainty",
+        "definition": "S2 contains no slot for omega. No reasoning trace exists to audit. The value is indistinguishable from a verified value and there is no record that it was ever ambiguous. This is the pure case of null uncertainty.",
+        "rho_defined": true,
+        "rho_recoverable": true,
+        "note": "Undetected produces the same Layer 2 epistemic state as Detected but removes even the possibility of retrospective audit."
+      }
+    },
+    "H": {
+      "label": "Hallucinated",
+      "layer_1": {
+        "definition": "The agent introduced a field that was not present in the input and has no referent in the world state W that generated the input. The agent did not detect or fail to detect an ambiguity — it generated a dimension that was never in the problem.",
+        "serialization_output": "A field carrying an asserted value that crosses the boundary as verified fact with no originating signal in the input.",
+        "example": "Agent asserts account_authorization: PASS for input field TRD-4471 which is an opaque identifier with no authorization dimension in the original CSV."
+      },
+      "layer_2": {
+        "epistemic_state": "Fictitious",
+        "definition": "S2 contains a slot for k, but k has no referent in W. The rotation function rho(k) is undefined — not unobserved but undefined — because no ground truth exists anywhere in the pipeline. The value v_k is indistinguishable from a verified value. The Bellman equation optimizes over a state space dimension that corresponds to nothing in the world.",
+        "rho_defined": false,
+        "rho_recoverable": false,
+        "note": "H is strictly worse than U. U truncates S2 by removing a real dimension. H expands S2 with a fictitious one. Neither is detectable from within S2. Only H is unrecoverable by any rotation."
+      }
+    }
+  },
+  "null_uncertainty": {
+    "definition": "A theoretical term describing the epistemic state of a downstream agent with respect to a dimension omega that exists in the world state W but has no slot in the agent's state space S. Null uncertainty is the Layer 2 consequence of both Detected and Undetected scoring at Layer 1. It is not a scoring category. It is what the scoring categories produce.",
+    "produced_by": ["D", "U"],
+    "not_produced_by": ["A", "H"],
+    "note": "H does not produce null uncertainty. It produces the inverse: a dimension present in S2 with no referent in W. Null uncertainty is a missing real dimension. H is a present fictitious one."
+  },
+  "scoring_table": {
+    "columns": ["category", "label", "slot_in_S2", "referent_in_W", "rho_defined", "recoverable", "layer_2_epistemic_state"],
+    "rows": [
+      ["A", "Asked",       true,  true,  true,  true,  "Defined"],
+      ["D", "Detected",    false, true,  true,  true,  "Null uncertainty"],
+      ["U", "Undetected",  false, true,  true,  true,  "Null uncertainty"],
+      ["H", "Hallucinated",true,  false, false, false, "Fictitious"]
+    ]
+  }
+}

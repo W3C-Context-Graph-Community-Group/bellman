@@ -183,6 +183,31 @@ export class LogPanel {
   _append(entry, traceType) {
     entry.dataset.trace_type = traceType;
     entry.dataset.id = this._nextId++;
+
+    // Copy button in header
+    const header = entry.querySelector('.log-entry-header');
+    if (header) {
+      const btn = document.createElement('button');
+      btn.className = 'log-copy-btn';
+      btn.title = 'Copy';
+      const copyIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="9" height="9" rx="1.5"/><path d="M3.5 10.5h-1a1.5 1.5 0 0 1-1.5-1.5v-7a1.5 1.5 0 0 1 1.5-1.5h7a1.5 1.5 0 0 1 1.5 1.5v1"/></svg>';
+      const checkIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-8"/></svg>';
+      btn.innerHTML = copyIcon;
+      btn.addEventListener('click', () => {
+        const body = entry.querySelector('.log-entry-body');
+        if (!body) return;
+        navigator.clipboard.writeText(body.innerText).then(() => {
+          btn.innerHTML = checkIcon;
+          btn.classList.add('log-copy-btn--done');
+          setTimeout(() => {
+            btn.innerHTML = copyIcon;
+            btn.classList.remove('log-copy-btn--done');
+          }, 2000);
+        });
+      });
+      header.appendChild(btn);
+    }
+
     this.entriesList.appendChild(entry);
     this.entriesList.scrollTop = this.entriesList.scrollHeight;
   }

@@ -80,6 +80,29 @@
   border-bottom: 1px solid #f3f4f6;
 }
 
+.log-copy-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.log-copy-btn:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.log-copy-btn--done {
+  color: #16a34a;
+}
+
 .log-badge {
   font-size: 0.7rem;
   font-weight: 700;
