@@ -19,8 +19,21 @@ const SEMANTIC_SUPERPOSITIONS = {
   account:    ['identifier'],
 };
 
+// Layer 0 — raw columns before any interpretation
+router.get('/layer0', (_req, res) => {
+  res.json({
+    data: { columns: Object.keys(SEMANTIC_SUPERPOSITIONS) },
+  });
+});
+
+// Layer 1 — semantic superpositions (Intent Map)
 router.get('/', (_req, res) => {
-  res.json({ semantic_superpositions: SEMANTIC_SUPERPOSITIONS });
+  res.json({
+    data:      { semantic_superpositions: SEMANTIC_SUPERPOSITIONS },
+    structure: {},
+    meaning:   {},
+    context:   {},
+  });
 });
 
 export default router;

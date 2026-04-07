@@ -1,20 +1,25 @@
 import eventBus from '../events/EventBus.js';
+import { PromptManager } from './PromptManager.js';
+import { PROMPT_CONFIG } from './prompt-config.js';
 
 export class ChatPanel {
   constructor(panel, mode) {
     this.panel = panel;
     this.mode = mode;
     this.messages = [];
-    this.activeLayer = 0;
     this._sending = false;
+    this.promptManager = new PromptManager();
     this._buildDOM();
     this._bindEvents();
-    this._checkStatus();
   }
 
   _buildDOM() {
     const modelOptionsHTML = this.mode.modelOptions.map(
       o => `<option value="${o.value}">${o.label}</option>`
+    ).join('');
+
+    const promptOptionsHTML = Object.entries(PROMPT_CONFIG).map(
+      ([n, def]) => `<option value="${n}">${def.label}</option>`
     ).join('');
 
     this.panel.id = 'leftColumn';
@@ -25,20 +30,16 @@ export class ChatPanel {
           <select class="chat-model-select">
             ${modelOptionsHTML}
           </select>
-          <span class="chat-status-light">
-            <span class="status-dot"></span>
-            <span class="status-label">Checking</span>
-          </span>
-          <select class="chat-prompt-select" title="Select System Prompt Layer">
-            <option value="" disabled selected>Select System Prompt</option>
-            <option value="/api/prompt">Layer 1 System Prompt</option>
-            <option value="/api/prompt2">Layer 2 System Prompt</option>
+          <select class="chat-prompt-select" title="Select Layer Prompt">
+            <option value="" disabled selected>Select Layer Prompt</option>
+            ${promptOptionsHTML}
           </select>
+          <a class="chat-view-prompt-link chat-view-prompt-link--disabled">View System Prompt</a>
         </div>
       </div>
       <div class="chat-messages"></div>
       <div class="chat-input-area">
-        <textarea id="leftColumnChatTextareaInput" class="chat-textarea" rows="1">${this.mode.defaultMessage}</textarea>
+        <textarea id="leftColumnChatTextareaInput" class="chat-textarea" rows="1"></textarea>
       </div>
       <div class="chat-send-row">
         <button class="chat-send-btn">Send</button>
@@ -50,7 +51,7 @@ export class ChatPanel {
             <h3 class="prompt-modal-title">System Prompt</h3>
             <button class="prompt-modal-close">&times;</button>
           </div>
-          <pre class="prompt-modal-body">Loading…</pre>
+          <pre class="prompt-modal-body"></pre>
         </div>
       </div>
     `;
@@ -58,9 +59,8 @@ export class ChatPanel {
     this.textarea = this.panel.querySelector('.chat-textarea');
     this.sendBtn = this.panel.querySelector('.chat-send-btn');
     this.modelSelect = this.panel.querySelector('.chat-model-select');
-    this.statusDot = this.panel.querySelector('.status-dot');
-    this.statusLabel = this.panel.querySelector('.status-label');
     this.promptSelect = this.panel.querySelector('.chat-prompt-select');
+    this.viewPromptLink = this.panel.querySelector('.chat-view-prompt-link');
     this.modalOverlay = this.panel.querySelector('.prompt-modal-overlay');
     this.modalTitle = this.panel.querySelector('.prompt-modal-title');
     this.modalBody = this.panel.querySelector('.prompt-modal-body');
@@ -77,11 +77,24 @@ export class ChatPanel {
     });
     this.textarea.addEventListener('input', () => this._autoResize());
     this.promptSelect.addEventListener('change', () => {
-      this.activeLayer = this.promptSelect.selectedIndex; // 0=placeholder, 1=Layer1, 2=Layer2
+      const layerNum = parseInt(this.promptSelect.value, 10);
+      const config = this.promptManager.selectLayer(layerNum);
+
+      // Auto-populate textarea with the resolved user prompt
+      this.textarea.value = config.user_prompt;
+      this._autoResize();
+
+      // Clear conversation for new layer
       this.messages = [];
       this.messageList.innerHTML = '';
+
+      // Enable the "View System Prompt" link
+      this.viewPromptLink.classList.remove('chat-view-prompt-link--disabled');
+    });
+    this.viewPromptLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (this.promptManager.currentLayer === 0) return;
       this._openPromptModal();
-      this._checkStatus();
     });
     this.modalClose.addEventListener('click', () => this._closePromptModal());
     this.modalOverlay.addEventListener('click', (e) => {
@@ -97,40 +110,14 @@ export class ChatPanel {
     ta.style.height = Math.min(ta.scrollHeight, maxH) + 'px';
   }
 
-  async _checkStatus() {
-    if (!this.promptSelect.value) return;
-    try {
-      const res = await fetch(this.promptSelect.value);
-      this._setStatus(res.ok);
-    } catch {
-      this._setStatus(false);
-    }
-  }
+  _openPromptModal() {
+    const config = this.promptManager.getConfig();
+    if (!config) return;
 
-  _setStatus(active) {
-    this.statusDot.classList.toggle('status-dot--active', active);
-    this.statusDot.classList.toggle('status-dot--error', !active);
-    this.statusLabel.textContent = active ? 'Active' : 'Inactive';
-  }
-
-  async _fetchSystemPrompt() {
-    const endpoint = this.promptSelect.value;
-    const res = await fetch(endpoint);
-    if (!res.ok) throw new Error(`Failed to load prompt: HTTP ${res.status}`);
-    return res.text();
-  }
-
-  async _openPromptModal() {
-    const label = this.promptSelect.options[this.promptSelect.selectedIndex].text;
-    this.modalTitle.textContent = label;
+    const layerDef = PROMPT_CONFIG[config.prompt_layer];
+    this.modalTitle.textContent = layerDef.label;
+    this.modalBody.textContent = config.system_prompt;
     this.modalOverlay.hidden = false;
-    this.modalBody.textContent = 'Loading…';
-    try {
-      const text = await this._fetchSystemPrompt();
-      this.modalBody.textContent = text;
-    } catch (err) {
-      this.modalBody.textContent = `Error: ${err.message}`;
-    }
   }
 
   _closePromptModal() {
@@ -159,7 +146,9 @@ export class ChatPanel {
   async _handleSend() {
     const text = this.textarea.value.trim();
     if (!text || this._sending) return;
-    if (!this.promptSelect.value) {
+
+    const config = this.promptManager.getConfig();
+    if (!config) {
       this._appendBubble('error', 'Please select a system prompt layer first.');
       return;
     }
@@ -173,6 +162,9 @@ export class ChatPanel {
     const sentAt = Date.now();
     eventBus.emit('message:sent', { text, timestamp: new Date().toISOString() });
 
+    const systemPrompt = config.system_prompt;
+    const currentLayer = this.promptManager.currentLayer;
+
     const MAX_RETRIES = 3;
     let validationErrors = 0;
     let raw = '';
@@ -183,23 +175,8 @@ export class ChatPanel {
       raw = '';
       parsed = null;
 
-      let systemPrompt;
-      console.log(`[ChatPanel] Attempt ${attempt + 1}: fetching system prompt from ${this.promptSelect.value}`);
-      try {
-        systemPrompt = await this._fetchSystemPrompt();
-      } catch (e) {
-        validationErrors++;
-        fatalError = `Prompt fetch failed: ${e.message}`;
-        eventBus.emit('message:error', {
-          attempt: attempt + 1, type: 'Network', detail: fatalError, raw: '', timestamp: new Date().toISOString()
-        });
-        this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
-        this._setStatus(false);
-        break;
-      }
-
       let res;
-      console.log(`[ChatPanel] Attempt ${attempt + 1}: sending to LLM (model=${this.modelSelect.value}, messages=${this.messages.length}, tools=${this.mode.tools?.length ?? 0})`);
+      console.log(`[ChatPanel] Attempt ${attempt + 1}: sending to LLM (layer=${currentLayer}, model=${this.modelSelect.value}, messages=${this.messages.length})`);
       const llmStart = Date.now();
       const waitingBubble = this._appendBubble('assistant', '...');
       let dots = 3;
@@ -219,7 +196,6 @@ export class ChatPanel {
           attempt: attempt + 1, type: 'Network', detail: fatalError, raw: '', timestamp: new Date().toISOString()
         });
         this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
-        this._setStatus(false);
         break;
       }
       clearInterval(waitingInterval);
@@ -233,7 +209,6 @@ export class ChatPanel {
           attempt: attempt + 1, type: 'HTTP error', detail: fatalError, raw: '', timestamp: new Date().toISOString()
         });
         this._appendBubble('error', `Attempt ${attempt + 1}: ${fatalError}`);
-        this._setStatus(false);
         break;
       }
 
@@ -251,13 +226,12 @@ export class ChatPanel {
       }
 
       // Delegate to mode's handleResponse
-      const result = await this.mode.handleResponse(data, this.messages, this.activeLayer);
+      const result = await this.mode.handleResponse(data, this.messages, currentLayer);
       raw = result.raw;
       parsed = result.parsed;
 
       if (!result.error) {
         fatalError = null;
-        this._setStatus(true);
         break;
       }
 
@@ -300,6 +274,7 @@ export class ChatPanel {
 
     if (raw) {
       this.messages.push({ role: 'assistant', content: raw });
+      this.promptManager.storeOutput(currentLayer, raw);
     }
     if (parsed || (!fatalError && raw)) {
       this._appendBubble('assistant', 'Executed');
@@ -311,7 +286,6 @@ export class ChatPanel {
     if (fatalError) {
       error = fatalError;
     } else if (this.mode.tools && !parsed && raw) {
-      // For tool-use modes, raw text without parsed is fine (not an error)
       error = null;
     } else if (!parsed && !raw) {
       error = 'No response received';
@@ -324,7 +298,7 @@ export class ChatPanel {
       ...(error && { error })
     });
 
-    if (this.activeLayer === 2 && parsed && !error) {
+    if (currentLayer === 2 && parsed && !error) {
       eventBus.emit('layer2:response', { raw, parsed });
     }
 

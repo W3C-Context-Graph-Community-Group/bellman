@@ -5,11 +5,14 @@ import {
   LAYER2_FIELDS,
   GRADES,
 } from './bellman-constants.js';
+import { ContextManager } from './facets/ContextManager.js';
 
 export class BellmanPanel {
   constructor(panel) {
     this.panel = panel;
-    this.activeLayer = 1;
+    // Read initial layer from URL (/layer/0, /layer/1, /layer/2)
+    const urlMatch = window.location.pathname.match(/\/layer\/(\d+)/);
+    this.activeLayer = urlMatch ? Number(urlMatch[1]) : 0;
     this.scores = new Map();       // Layer 1: fieldKey → 'A'|'D'|'U'|'H'|null
     this.layer2Scores = new Map(); // Layer 2: fieldKey → 'A'|'D'|'U'|'H'|null
     this.fields = [];              // enriched from API
@@ -19,6 +22,8 @@ export class BellmanPanel {
     this.layer2HasResponse = false;
     this.layer2DynamicFields = null;
     this.recommendations = new Map(); // fieldKey → 'A'|'D'|'U'|'H' from classifier
+    this.facetData = { data: {}, structure: {}, meaning: {}, context: {} };
+    this.contextManager = new ContextManager();
 
     this._buildDOM();
     this._subscribe();
@@ -31,6 +36,7 @@ export class BellmanPanel {
       this._fetchFailureModes(),
     ]);
     this._initScores();
+    this._renderLayer0();
     this._renderLayer1Fields();
     this._renderLayer2();
     this._renderScoreboard();
@@ -39,8 +45,12 @@ export class BellmanPanel {
   async _fetchSuperpositions() {
     try {
       const res = await fetch('/api/semantic_superposition');
-      const data = await res.json();
-      const superpositions = data.semantic_superpositions;
+      const payload = await res.json();
+
+      // API returns { data, structure, meaning, context }
+      this.facetData = payload;
+
+      const superpositions = payload.data?.semantic_superpositions || {};
 
       this.fields = ANSWER_KEY.fields.map((f) => {
         const interpretations = superpositions[f.key] || [f.value];
@@ -83,13 +93,15 @@ export class BellmanPanel {
           <h2>Bellman</h2>
           <button class="bellman-info-btn" title="Legend">i</button>
           <div class="bellman-tabs">
-            <button class="bellman-tab bellman-tab--active" data-layer="1">Layer 1</button>
-            <button class="bellman-tab" data-layer="2">Layer 2</button>
+            <button class="bellman-tab${this.activeLayer === 0 ? ' bellman-tab--active' : ''}" data-layer="0">Raw</button>
+            <button class="bellman-tab${this.activeLayer === 1 ? ' bellman-tab--active' : ''}" data-layer="1">Protocol</button>
+            <button class="bellman-tab${this.activeLayer === 2 ? ' bellman-tab--active' : ''}" data-layer="2">Coherence</button>
           </div>
         </div>
 
-        <div class="bellman-layer bellman-layer--active" data-layer-content="1"></div>
-        <div class="bellman-layer" data-layer-content="2"></div>
+        <div class="bellman-layer${this.activeLayer === 0 ? ' bellman-layer--active' : ''}" data-layer-content="0"></div>
+        <div class="bellman-layer${this.activeLayer === 1 ? ' bellman-layer--active' : ''}" data-layer-content="1"></div>
+        <div class="bellman-layer${this.activeLayer === 2 ? ' bellman-layer--active' : ''}" data-layer-content="2"></div>
 
         <div class="bellman-scoreboard">
           <div class="bellman-stat">
@@ -112,6 +124,7 @@ export class BellmanPanel {
       </div>
     `;
 
+    this._layer0El = this.panel.querySelector('[data-layer-content="0"]');
     this._layer1El = this.panel.querySelector('[data-layer-content="1"]');
     this._layer2El = this.panel.querySelector('[data-layer-content="2"]');
 
@@ -206,7 +219,7 @@ export class BellmanPanel {
   }
 
   reset() {
-    this.activeLayer = 1;
+    this.activeLayer = 0;
     this.scores = new Map();
     this.layer2Scores = new Map();
     this.recommendations = new Map();
@@ -216,15 +229,49 @@ export class BellmanPanel {
 
     // Reset tab visuals
     this.panel.querySelectorAll('.bellman-tab').forEach((t) => {
-      t.classList.toggle('bellman-tab--active', Number(t.dataset.layer) === 1);
+      t.classList.toggle('bellman-tab--active', Number(t.dataset.layer) === 0);
     });
 
-    this._layer1El.classList.add('bellman-layer--active');
+    this._layer0El.classList.add('bellman-layer--active');
+    this._layer1El.classList.remove('bellman-layer--active');
     this._layer2El.classList.remove('bellman-layer--active');
 
+    this._renderLayer0();
     this._renderLayer1Fields();
     this._renderLayer2();
     this._renderScoreboard();
+  }
+
+  /* ================================================================ */
+  /*  Rendering \u2014 Layer 0 (raw data)                                  */
+  /* ================================================================ */
+
+  _renderLayer0() {
+    this._layer0El.innerHTML = '';
+
+    const section = document.createElement('div');
+    section.className = 'bellman-section';
+    section.innerHTML = `<h3>Raw Data \u2014 Columns</h3>`;
+
+    const note = document.createElement('p');
+    note.className = 'bellman-inherited-label';
+    note.textContent = 'Source fields before any semantic interpretation is applied.';
+    section.appendChild(note);
+
+    ANSWER_KEY.fields.forEach((field) => {
+      const row = document.createElement('div');
+      row.className = 'bellman-field bellman-field--closed';
+
+      row.innerHTML = `
+        <div class="bellman-field-info">
+          <span class="bellman-field-name">${field.name}</span>
+          <span class="bellman-field-value">${field.value}</span>
+        </div>
+      `;
+      section.appendChild(row);
+    });
+
+    this._layer0El.appendChild(section);
   }
 
   /* ================================================================ */
@@ -234,13 +281,22 @@ export class BellmanPanel {
   _renderLayer1Fields() {
     this._layer1El.innerHTML = '';
 
-    // DATA facet wrapper
+    const FACETS = ['data', 'structure', 'meaning', 'context'];
+
+    FACETS.forEach((facetKey) => {
+      const facet = this._buildFacet(facetKey);
+      this._layer1El.appendChild(facet);
+    });
+  }
+
+  _buildFacet(facetKey) {
     const facet = document.createElement('div');
-    facet.id = 'bellmanDataFacetWrapper';
     facet.className = 'bellman-facet';
+    facet.dataset.facet = facetKey;
 
     const facetHeader = document.createElement('div');
     facetHeader.className = 'bellman-facet-header';
+    facetHeader.dataset.facet = facetKey;
 
     const toggle = document.createElement('span');
     toggle.className = 'bellman-facet-toggle';
@@ -248,7 +304,7 @@ export class BellmanPanel {
 
     const title = document.createElement('span');
     title.className = 'bellman-facet-title';
-    title.textContent = 'DATA';
+    title.textContent = facetKey.toUpperCase();
 
     facetHeader.appendChild(toggle);
     facetHeader.appendChild(title);
@@ -261,13 +317,24 @@ export class BellmanPanel {
       toggle.textContent = collapsed ? '\u25B6' : '\u25BC'; // right : down
     });
 
-    this.fields.forEach((field) => {
-      this._renderFieldRow(field, this.scores, facetBody);
-    });
+    // Delegate to facet managers
+    if (facetKey === 'data') {
+      this.fields.forEach((field) => {
+        this._renderFieldRow(field, this.scores, facetBody);
+      });
+    } else if (facetKey === 'context') {
+      this.contextManager.render(facetBody);
+    } else {
+      // STRUCTURE, MEANING: placeholder until manager exists
+      const placeholder = document.createElement('p');
+      placeholder.className = 'bellman-facet-placeholder';
+      placeholder.textContent = `No ${facetKey} analysis yet.`;
+      facetBody.appendChild(placeholder);
+    }
 
     facet.appendChild(facetHeader);
     facet.appendChild(facetBody);
-    this._layer1El.appendChild(facet);
+    return facet;
   }
 
   /* ================================================================ */
@@ -335,7 +402,9 @@ export class BellmanPanel {
       </div>
       <div class="bellman-superposition">
         <div class="bellman-superposition-header">Semantic Superposition:</div>
-        <div class="bellman-superposition-code">"${field.value}": ${JSON.stringify(field.interpretations)}</div>
+        <div class="bellman-superposition-tags">
+          ${field.interpretations.map((i) => `<span class="bellman-superposition-tag">${i}</span>`).join('')}
+        </div>
       </div>
     `;
     return row;
@@ -375,10 +444,15 @@ export class BellmanPanel {
     header.textContent = 'Semantic Superposition:';
     superpos.appendChild(header);
 
-    const code = document.createElement('div');
-    code.className = 'bellman-superposition-code';
-    code.textContent = `"${field.value}": ${JSON.stringify(field.interpretations)}`;
-    superpos.appendChild(code);
+    const tags = document.createElement('div');
+    tags.className = 'bellman-superposition-tags';
+    field.interpretations.forEach((interp) => {
+      const tag = document.createElement('span');
+      tag.className = 'bellman-superposition-tag';
+      tag.textContent = interp;
+      tags.appendChild(tag);
+    });
+    superpos.appendChild(tags);
 
     row.appendChild(superpos);
 
@@ -451,9 +525,11 @@ export class BellmanPanel {
       t.classList.toggle('bellman-tab--active', Number(t.dataset.layer) === num);
     });
 
+    this._layer0El.classList.toggle('bellman-layer--active', num === 0);
     this._layer1El.classList.toggle('bellman-layer--active', num === 1);
     this._layer2El.classList.toggle('bellman-layer--active', num === 2);
 
+    history.pushState(null, '', `/layer/${num}`);
     this._renderScoreboard();
   }
 
@@ -472,7 +548,26 @@ export class BellmanPanel {
     const undetectedLabel = undetectedEl.closest('.bellman-stat').querySelector('.bellman-stat-label');
     const hallucinatedLabel = hallucinatedEl.closest('.bellman-stat').querySelector('.bellman-stat-label');
 
-    if (this.activeLayer === 1) {
+    if (this.activeLayer === 0) {
+      const fieldCount = ANSWER_KEY.fields.length;
+
+      entropyLabel.textContent = 'Fields';
+      rotationsLabel.textContent = 'Entropy';
+      undetectedLabel.textContent = 'Layer';
+      hallucinatedLabel.textContent = 'Status';
+
+      entropyEl.textContent = `${fieldCount}`;
+      entropyEl.className = 'bellman-stat-value';
+
+      rotationsEl.textContent = '\u2014';
+      rotationsEl.className = 'bellman-stat-value';
+
+      undetectedEl.textContent = '0';
+      undetectedEl.className = 'bellman-stat-value';
+
+      hallucinatedEl.textContent = 'Raw';
+      hallucinatedEl.className = 'bellman-stat-value';
+    } else if (this.activeLayer === 1) {
       // H_total: \u03A3 log\u2082|\u03A9_i| for D and U fields (and unscored).
       // A sets field entropy to 0. H excluded entirely.
       const entropy = this._computeEntropy(this.scores, this.fields);

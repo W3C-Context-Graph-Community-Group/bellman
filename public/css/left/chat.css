@@ -45,34 +45,6 @@
   border-color: #3b82f6;
 }
 
-/* Status light */
-.chat-status-light {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.7rem;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #d1d5db;
-  flex-shrink: 0;
-}
-
-.status-dot--active {
-  background: #22c55e;
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
-}
-
-.status-dot--error {
-  background: #ef4444;
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
-}
-
 /* Prompt layer dropdown */
 .chat-prompt-select {
   font-size: 0.75rem;
@@ -87,6 +59,25 @@
 
 .chat-prompt-select:focus {
   border-color: #3b82f6;
+}
+
+/* View System Prompt link */
+.chat-view-prompt-link {
+  font-size: 0.7rem;
+  color: #3b82f6;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.chat-view-prompt-link:hover {
+  text-decoration: underline;
+}
+
+.chat-view-prompt-link--disabled {
+  color: #9ca3af;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* ── Messages ───────────────────────────────────────────────────────────── */

@@ -31,8 +31,31 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request/Response logging
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  console.log(`[HTTP] → ${req.method} ${req.originalUrl} body=${JSON.stringify(req.body)}`);
+  const originalJson = res.json.bind(res);
+  res.json = (data) => {
+    console.log(`[HTTP] ← ${req.method} ${req.originalUrl} ${res.statusCode} (${Date.now() - t0}ms) body=${JSON.stringify(data).substring(0, 500)}`);
+    return originalJson(data);
+  };
+  const originalSend = res.send.bind(res);
+  res.send = (data) => {
+    const preview = typeof data === 'string' ? data.substring(0, 200) : '[buffer]';
+    console.log(`[HTTP] ← ${req.method} ${req.originalUrl} ${res.statusCode} (${Date.now() - t0}ms) ${preview}`);
+    return originalSend(data);
+  };
+  next();
+});
+
 // Routes
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'resizers.html'));
+});
+
+// Layer routes — fake URLs so the address bar reflects the current layer
+app.get('/layer/:num', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'resizers.html'));
 });
 
@@ -46,14 +69,6 @@ app.use('/api/bellman', bellmanClassifier);
 
 app.get('/api/failure-modes', (req, res) => {
   res.json(failureModes);
-});
-
-app.get('/api/prompt', (req, res) => {
-  res.sendFile(path.join(__dirname, 'data', 'prompt.txt'));
-});
-
-app.get('/api/prompt2', (req, res) => {
-  res.sendFile(path.join(__dirname, 'data', 'prompt2.txt'));
 });
 
 app.get('/api/prompt/sec', (req, res) => {

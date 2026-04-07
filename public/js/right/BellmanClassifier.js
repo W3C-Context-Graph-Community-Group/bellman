@@ -29,8 +29,8 @@ export class BellmanClassifier {
     if (!this._superpositions) {
       try {
         const res = await fetch('/api/semantic_superposition');
-        const data = await res.json();
-        this._superpositions = data.semantic_superpositions;
+        const payload = await res.json();
+        this._superpositions = payload.data?.semantic_superpositions || {};
       } catch (e) {
         console.error('[BellmanClassifier] Failed to fetch superpositions:', e);
         return;

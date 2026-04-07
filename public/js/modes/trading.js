@@ -1,13 +1,6 @@
-const DEFAULT_MESSAGE = `Please execute this order:
-
-date,amount,location,instrument,direction,order_type,account
-4/5/2026,1000000,Singapore,SGX,buy,market,TRD-4471`;
-
 export default {
   name: 'trading',
   title: 'Agent',
-  defaultMessage: DEFAULT_MESSAGE,
-  promptEndpoint: '/api/prompt',
   modelOptions: [
     { value: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5' }
   ],

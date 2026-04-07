@@ -43,11 +43,16 @@
     import tradingMode from '/js/modes/trading.js';
     import secMode from '/js/modes/sec.js';
 
+    // Set initial URL to /layer/0 if on root
+    if (window.location.pathname === '/') {
+      history.replaceState(null, '', '/layer/0');
+    }
+
     // INTENT MAP button → fetch superposition API → ModalManager
     document.getElementById('intentMapBtn').addEventListener('click', async () => {
       const res = await fetch('/api/semantic_superposition');
       const data = await res.json();
-      const entries = Object.entries(data.semantic_superpositions);
+      const entries = Object.entries(data.data.semantic_superpositions);
 
       let html = '<h1>Intent Map</h1>';
       html += '<p style="color:#6b7280;font-size:0.85rem;margin-bottom:1rem">'
