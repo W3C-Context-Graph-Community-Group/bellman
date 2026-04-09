@@ -1,17 +1,16 @@
 import type { Vertex, Grade } from '../types';
 import { ADUH_COLORS, ALIVE_COLOR } from '../types';
-import { reprojectAfterCollapse } from './projection';
 
 /**
  * Collapse an axis: eliminate all vertices whose coordinate on the given axis
- * does not match the resolved value index. Survivors get new target positions.
+ * does not match the resolved value index. Survivors keep their grid positions.
  */
 export function collapseAxis(
   vertices: Vertex[],
   axisIndex: number,
   resolvedIndex: number,
-  axisSizes: number[],
-  collapsedAxes: Set<number>,
+  _axisSizes: number[],
+  _collapsedAxes: Set<number>,
   aduhScore: Grade,
 ): Vertex[] {
   const eliminationColor = aduhScore ? ADUH_COLORS[aduhScore] : '#ef4444';
@@ -28,10 +27,8 @@ export function collapseAxis(
       };
     }
 
-    const newPos = reprojectAfterCollapse(v.coords, axisSizes, collapsedAxes);
     return {
       ...v,
-      targetPosition3D: newPos,
       color: ALIVE_COLOR,
     };
   });
@@ -62,27 +59,20 @@ export function addGhostVertices(
 
   for (let i = 0; i < ghostCount; i++) {
     const base = alive[i % alive.length];
-    const angle = (i / ghostCount) * Math.PI * 2;
-    const radius = 3 + Math.random() * 2;
     ghosts.push({
       id: baseId + i,
       coords: [...base.coords, i],
-      position3D: [
-        base.position3D[0] + Math.cos(angle) * radius,
-        base.position3D[1] + Math.sin(angle) * radius * 0.5,
-        base.position3D[2] + Math.sin(angle) * radius,
-      ],
-      targetPosition3D: [
-        base.position3D[0] + Math.cos(angle) * radius,
-        base.position3D[1] + Math.sin(angle) * radius * 0.5,
-        base.position3D[2] + Math.sin(angle) * radius,
-      ],
+      position3D: [0, 0, 0],
+      targetPosition3D: [0, 0, 0],
       status: 'ghost',
       color: '#7c3aed',
       eliminatedBy: null,
       isGhost: true,
       scale: 0.6,
       opacity: 0.5,
+      gridRow: base.gridRow,
+      gridCol: base.gridCol,
+      label: `Ghost #${i + 1}`,
     });
   }
 

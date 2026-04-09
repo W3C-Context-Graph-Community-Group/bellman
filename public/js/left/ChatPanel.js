@@ -60,7 +60,18 @@ export class ChatPanel {
         <div class="prompt-modal">
           <div class="prompt-modal-header">
             <h3 class="prompt-modal-title">System Prompt</h3>
-            <button class="prompt-modal-close">&times;</button>
+            <div class="prompt-modal-actions">
+              <button class="prompt-modal-copy" title="Copy to clipboard">
+                <svg class="prompt-modal-copy-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+                  <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>
+                </svg>
+                <svg class="prompt-modal-check-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+                  <polyline points="3 8.5 6.5 12 13 4"/>
+                </svg>
+              </button>
+              <button class="prompt-modal-close">&times;</button>
+            </div>
           </div>
           <pre class="prompt-modal-body"></pre>
         </div>
@@ -76,6 +87,7 @@ export class ChatPanel {
     this.modalTitle = this.panel.querySelector('.prompt-modal-title');
     this.modalBody = this.panel.querySelector('.prompt-modal-body');
     this.modalClose = this.panel.querySelector('.prompt-modal-close');
+    this.modalCopyBtn = this.panel.querySelector('.prompt-modal-copy');
   }
 
   _bindEvents() {
@@ -106,6 +118,15 @@ export class ChatPanel {
       e.preventDefault();
       if (this.promptManager.currentLayer === 0) return;
       this._openPromptModal();
+    });
+    this.modalCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(this.modalBody.textContent).then(() => {
+        const copyIcon = this.modalCopyBtn.querySelector('.prompt-modal-copy-icon');
+        const checkIcon = this.modalCopyBtn.querySelector('.prompt-modal-check-icon');
+        copyIcon.hidden = true;
+        checkIcon.hidden = false;
+        setTimeout(() => { checkIcon.hidden = true; copyIcon.hidden = false; }, 1500);
+      });
     });
     this.modalClose.addEventListener('click', () => this._closePromptModal());
     this.modalOverlay.addEventListener('click', (e) => {

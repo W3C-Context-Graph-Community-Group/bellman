@@ -1,16 +1,13 @@
 import { create } from 'zustand';
 import type { Vertex, FieldState, ViewMode, Grade } from '../types';
-import { ALIVE_COLOR } from '../types';
 import { LAYER1_FIELDS, LAYER2_FIELDS, AXIS_SIZES, LAYER2_AXIS_SIZES } from '../data/seed';
 import { SERIALIZATION_EVENTS } from '../data/events';
-import { generate4DLattice, generateEdges } from '../engine/lattice';
+import { generate4DLattice } from '../engine/lattice';
 import { collapseAxis, finalizeElimination, addGhostVertices } from '../engine/collapse';
 import { computeTotalEntropy, computeOmegaTotal, countRotations } from '../engine/entropy';
-import { project4Dto3D } from '../engine/projection';
 
 interface PolytopeStore {
   vertices: Vertex[];
-  edges: [number, number][];
   currentStep: number;
   totalSteps: number;
   fields: FieldState[];
@@ -24,6 +21,9 @@ interface PolytopeStore {
   selectedFieldId: string | null;
   showEventModal: boolean;
   activeLayer: 1 | 2;
+  playSpeed: number;
+  newlyEliminatedIds: number[];
+  isEntryComplete: boolean;
 
   // Actions
   initialize: () => void;
@@ -37,20 +37,23 @@ interface PolytopeStore {
   selectField: (id: string | null) => void;
   setShowEventModal: (show: boolean) => void;
   setFieldScore: (fieldId: string, score: Grade) => void;
+  setNewlyEliminated: (ids: number[]) => void;
+  clearNewlyEliminated: () => void;
+  setEntryComplete: (complete: boolean) => void;
 }
 
 function buildStateAtStep(step: number): {
   vertices: Vertex[];
-  edges: [number, number][];
   fields: FieldState[];
   activeLayer: 1 | 2;
 } {
   const events = SERIALIZATION_EVENTS;
+  const l1Omegas = LAYER1_FIELDS.map((f) => f.omega);
+  const l2Omegas = LAYER2_FIELDS.map((f) => f.omega);
 
   if (step <= 5) {
     // Layer 1 territory
-    let vertices = generate4DLattice(AXIS_SIZES);
-    let edges = generateEdges(vertices);
+    let vertices = generate4DLattice(AXIS_SIZES, l1Omegas);
     const fields = LAYER1_FIELDS.map((f) => ({ ...f }));
     const collapsedAxes = new Set<number>();
     const axisFieldMap = ['date', 'amount', 'location', 'instrument'];
@@ -73,18 +76,12 @@ function buildStateAtStep(step: number): {
       vertices = finalizeElimination(vertices);
     }
 
-    // Filter edges for alive vertices only
-    const aliveIds = new Set(vertices.filter((v) => v.status === 'alive').map((v) => v.id));
-    edges = edges.filter(([a, b]) => aliveIds.has(a) && aliveIds.has(b));
-
-    return { vertices, edges, fields, activeLayer: 1 };
+    return { vertices, fields, activeLayer: 1 };
   }
 
   // Step 6+: Layer 2
   if (step === 6) {
-    // Layer 2 receives — build Layer 2 polytope (108 vertices)
-    const l2Vertices = generate4DLattice(LAYER2_AXIS_SIZES);
-    const l2Edges = generateEdges(l2Vertices);
+    const l2Vertices = generate4DLattice(LAYER2_AXIS_SIZES, l2Omegas);
     const fields = [
       ...LAYER1_FIELDS.map((f) => ({
         ...f,
@@ -94,12 +91,11 @@ function buildStateAtStep(step: number): {
       })),
       ...LAYER2_FIELDS.map((f) => ({ ...f })),
     ];
-    return { vertices: l2Vertices, edges: l2Edges, fields, activeLayer: 2 };
+    return { vertices: l2Vertices, fields, activeLayer: 2 };
   }
 
   // Steps 7-11: Layer 2 collapses
-  let vertices = generate4DLattice(LAYER2_AXIS_SIZES);
-  let edges = generateEdges(vertices);
+  let vertices = generate4DLattice(LAYER2_AXIS_SIZES, l2Omegas);
   const l2AxisMap = ['volatility_model', 'correlation', 'hedging_horizon', 'risk_threshold'];
   const collapsedAxes = new Set<number>();
 
@@ -131,15 +127,11 @@ function buildStateAtStep(step: number): {
     vertices = finalizeElimination(vertices);
   }
 
-  const aliveIds = new Set(vertices.filter((v) => v.status === 'alive').map((v) => v.id));
-  edges = edges.filter(([a, b]) => aliveIds.has(a) && aliveIds.has(b));
-
-  return { vertices, edges, fields, activeLayer: 2 };
+  return { vertices, fields, activeLayer: 2 };
 }
 
 export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   vertices: [],
-  edges: [],
   currentStep: 0,
   totalSteps: SERIALIZATION_EVENTS.length - 1,
   fields: LAYER1_FIELDS.map((f) => ({ ...f })),
@@ -153,6 +145,9 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   selectedFieldId: null,
   showEventModal: false,
   activeLayer: 1,
+  playSpeed: 2500,
+  newlyEliminatedIds: [],
+  isEntryComplete: false,
 
   initialize: () => {
     const state = buildStateAtStep(0);
@@ -179,17 +174,28 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   },
 
   goToStep: (step: number) => {
+    const prevState = buildStateAtStep(Math.max(0, step - 1));
     const clamped = Math.max(0, Math.min(step, SERIALIZATION_EVENTS.length - 1));
     const state = buildStateAtStep(clamped);
     const activeFields = state.activeLayer === 1
       ? state.fields.filter((f) => f.layer === 1)
       : state.fields;
+
+    // Compute newly eliminated IDs (alive in previous step, eliminated in current)
+    const prevAliveIds = new Set(
+      prevState.vertices.filter((v) => v.status === 'alive').map((v) => v.id),
+    );
+    const newlyEliminated = state.vertices
+      .filter((v) => v.status === 'eliminated' && prevAliveIds.has(v.id))
+      .map((v) => v.id);
+
     set({
       ...state,
       currentStep: clamped,
       hTotal: computeTotalEntropy(activeFields.filter((f) => f.resolvedTo === null)),
       omegaTotal: computeOmegaTotal(activeFields.filter((f) => f.resolvedTo === null)),
       rotations: countRotations(activeFields),
+      newlyEliminatedIds: newlyEliminated,
     });
   },
 
@@ -198,7 +204,6 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
 
   setViewMode: (mode) => {
     set({ viewMode: mode });
-    // Rebuild to reflect view mode
     const { currentStep } = get();
     get().goToStep(currentStep);
   },
@@ -207,14 +212,17 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   selectField: (id) => set({ selectedFieldId: id }),
   setShowEventModal: (show) => set({ showEventModal: show }),
 
+  setNewlyEliminated: (ids) => set({ newlyEliminatedIds: ids }),
+  clearNewlyEliminated: () => set({ newlyEliminatedIds: [] }),
+  setEntryComplete: (complete) => set({ isEntryComplete: complete }),
+
   setFieldScore: (fieldId, score) => {
-    const { fields, currentStep } = get();
+    const { fields } = get();
     const updated = fields.map((f) =>
       f.id === fieldId ? { ...f, aduhScore: score } : f,
     );
     set({ fields: updated });
 
-    // If H: add ghost vertices
     if (score === 'H') {
       const { vertices } = get();
       const ghosts = addGhostVertices(vertices, 5, vertices.length + 1000);

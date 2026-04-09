@@ -1,47 +1,44 @@
 import { useEffect } from 'react';
-import { PolytopeScene } from './components/canvas/PolytopeScene';
-import { Scoreboard } from './components/panels/Scoreboard';
-import { TablePanel } from './components/panels/TablePanel';
+import { MetricsHeader } from './components/layout/MetricsHeader';
+import { StepBanner } from './components/layout/StepBanner';
+import { GridContainer } from './components/grid/GridContainer';
+import { FieldLegend } from './components/layout/FieldLegend';
 import { TimelineScrubber } from './components/panels/TimelineScrubber';
-import { ViewToggle } from './components/panels/ViewToggle';
-import { DepthSlider } from './components/panels/DepthSlider';
 import { EventDetailModal } from './components/modals/EventDetailModal';
 import { usePolytopeStore } from './store/usePolytopeStore';
-import { useCollapseAnimation } from './hooks/useCollapseAnimation';
-import './styles/App.css';
+import { useEntryAnimation } from './hooks/useEntryAnimation';
+// Design system & reset
+import './styles/variables.css';
+import './styles/layout.css';
+
+// Component styles
+import './styles/MetricsHeader.css';
+import './styles/StepBanner.css';
+import './styles/Grid.css';
+import './styles/FieldLegend.css';
+import './styles/TimelineScrubber.css';
+import './styles/Modal.css';
 
 export default function App() {
   const initialize = usePolytopeStore((s) => s.initialize);
-  const setShowEventModal = usePolytopeStore((s) => s.setShowEventModal);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  useCollapseAnimation();
+  useEntryAnimation();
 
   return (
     <div className="app-layout">
-      <PolytopeScene />
-
-      <div className="right-panel">
-        <Scoreboard />
-        <ViewToggle />
-        <DepthSlider />
-        <TablePanel />
-        <button
-          className="event-detail-btn"
-          style={{ margin: '8px 16px' }}
-          onClick={() => setShowEventModal(true)}
-        >
-          Event Details
-        </button>
+      <MetricsHeader />
+      <StepBanner />
+      <div className="grid-area">
+        <GridContainer />
       </div>
-
+      <FieldLegend />
       <div className="bottom-bar">
         <TimelineScrubber />
       </div>
-
       <EventDetailModal />
     </div>
   );

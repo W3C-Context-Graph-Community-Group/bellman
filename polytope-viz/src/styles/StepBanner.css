@@ -1,0 +1,34 @@
+/* ─── Step Banner ─── */
+.step-banner {
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.3s ease;
+}
+
+.step-banner.hidden {
+  opacity: 0;
+}
+
+.step-banner.visible {
+  opacity: 1;
+}
+
+.banner-step {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.banner-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.banner-stats {
+  color: var(--text-muted);
+}

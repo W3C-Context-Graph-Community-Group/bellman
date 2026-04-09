@@ -1,0 +1,78 @@
+/* ─── Field Legend ─── */
+.field-legend {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.legend-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.legend-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg-tertiary);
+}
+
+.legend-row.collapsed {
+  background: #fffbeb;
+}
+
+.legend-name {
+  font-weight: 600;
+  min-width: 100px;
+  color: var(--text-primary);
+}
+
+.legend-value {
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.legend-omega {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+}
+
+.legend-status {
+  flex: 1;
+}
+
+.legend-status.pending {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.legend-status.resolved {
+  color: var(--orange);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aduh-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+}
