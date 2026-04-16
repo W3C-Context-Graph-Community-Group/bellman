@@ -20,6 +20,7 @@ interface PolytopeStore {
   selectedVertexId: number | null;
   selectedFieldId: string | null;
   showEventModal: boolean;
+  showGuide: boolean;
   activeLayer: 1 | 2;
   playSpeed: number;
   newlyEliminatedIds: number[];
@@ -36,6 +37,7 @@ interface PolytopeStore {
   selectVertex: (id: number | null) => void;
   selectField: (id: string | null) => void;
   setShowEventModal: (show: boolean) => void;
+  setShowGuide: (show: boolean) => void;
   setFieldScore: (fieldId: string, score: Grade) => void;
   setNewlyEliminated: (ids: number[]) => void;
   clearNewlyEliminated: () => void;
@@ -144,6 +146,7 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   selectedVertexId: null,
   selectedFieldId: null,
   showEventModal: false,
+  showGuide: false,
   activeLayer: 1,
   playSpeed: 2500,
   newlyEliminatedIds: [],
@@ -211,6 +214,7 @@ export const usePolytopeStore = create<PolytopeStore>((set, get) => ({
   selectVertex: (id) => set({ selectedVertexId: id }),
   selectField: (id) => set({ selectedFieldId: id }),
   setShowEventModal: (show) => set({ showEventModal: show }),
+  setShowGuide: (show) => set({ showGuide: show }),
 
   setNewlyEliminated: (ids) => set({ newlyEliminatedIds: ids }),
   clearNewlyEliminated: () => set({ newlyEliminatedIds: [] }),

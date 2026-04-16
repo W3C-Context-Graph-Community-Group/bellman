@@ -1,0 +1,30 @@
+Comment:
+Overall rating:
+Isotropic solution; ok; simple, cheap, effective;
+The cost and risk calculation for performing the verification operation at the system boundary is trivial.
+"Meaning" – how a string == turns into a bit (not);
+and the other two arguments in the same way;
+Elegant name “Dark Fraction”, nice Hamming geometry, the corollaries about “scale guarantees degradation” and “diminishing returns” sound very scientific and “deep”.
+Classic move: take a simple, useful idea (registering three types of metadata as URLs and comparing them), wrap it in a hypercube of Hamming distances and there you go – you have a “theorem”.
+Someone might think that this flat decomposition is the “only correct” way to model context. In reality, it is a deliberate simplification that gives up hierarchy and dependencies in order to keep the computation easy.
+Cost = number of comparisons performed = r
+Risk = percentage of the configuration space you have no access to (dark fraction)
+multiplied by $; that makes sense;
+This is classic combinatorics from the binary cube – exactly the same as in error-correcting code theory (Hamming bound), just wrapped in a nice name “Dark Fraction” and put into a data context.
+There is no deep semantics here, no complex ontology, no machine learning – just:
+How many bits of information you managed to collect vs. how many bits of information exist in total at the boundary.
+
+
+
+
+What next:
+And now in the file:
+0_generalisation_1.txt
+you have the starting point (because generalizations are important if you suddenly decide you want 5 facets, or 11);
+plus, if the generalization works, that’s good;
+from this you have the 0_verif files;
+The identical algorithm to yours, described verbally and ontologically, is in:
+0_same_algo_UE5_poser.txt
+And if you want to change something, you save it to the project, for example as 1_ and there you keep the newer version after changing JUST ONE thing;
+These URLs can be squeezed into embeddings and you can compute p-addition from a tree;
+but that’s later; once I’ve sorted out the issue of making embeddings without training on my side;

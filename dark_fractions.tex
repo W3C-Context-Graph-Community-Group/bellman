@@ -1,0 +1,287 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\geometry{margin=1in}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+
+\title{The Dark Fraction Theorem:\\A Geometric Bound on Unverifiable Configurations\\at System Boundaries}
+\author{Ron Itelman\thanks{Chair, W3C Context Graph Community Group. ORCID: 0009-0009-4059-728X.} \and Jacek Kowalski\thanks{Chair, Mathematics Committee, W3C Context Graph Community Group.}}
+\date{April 2026\\Working paper}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a protocol that decomposes each variable at a system boundary into three binary facets---Meaning, Structure, and Context---and show that this decomposition induces a Hamming cube $\{0,1\}^{3m}$ as the natural configuration space for $m$ variables. Verification of $r$ facets covers a Hamming ball whose volume is computable exactly. The ratio of ball to cube---the verified fraction---goes to zero as $m$ grows. The complement---the \emph{dark fraction}---measures the portion of the configuration space that no within-system diagnostic can reach. This quantity is new: no prior framework provides a computable metric for unverifiable boundary configurations. The mathematics is standard. The contribution is the mapping from protocol to geometry and the predictions it enables.
+\end{abstract}
+
+% ============================================================
+\section{The Protocol}
+\label{sec:protocol}
+% ============================================================
+
+When data crosses a boundary between two systems, each variable carries a value and an interpretation. The protocol requires the interpretation to be registered through three facets, each resolved to a URL:
+
+\begin{center}
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{Facet} & \textbf{What is registered} \\
+\midrule
+Meaning & What the value refers to (e.g., trade execution date vs.\ settlement date) \\
+Structure & How the value is encoded (e.g., \texttt{MM/DD/YYYY} vs.\ \texttt{DD/MM/YYYY}) \\
+Context & Conditions under which Meaning and Structure hold (e.g., US market / NYSE / Eastern time) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent A fourth facet, Data, is the raw value
+itself---it crosses the boundary directly and requires
+no registration. The three registered facets produce
+the binary coordinates used in the proof.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{figure_1.png}
+\caption{Context Graph Fundamentals. A two-column dataset (Oil Price, Date) with all four facets registered. The bottom row shows the geometric consequence: from null uncertainty (no axes exist for collective measurement) through dark uncertainty (axes exist, positions unknown) to collapsed uncertainty (a single verified point). Each cell can be diffed as a URL: match or mismatch.}
+\label{fig:fundamentals}
+\end{figure}
+
+At every boundary, the protocol compares each shared variable's URLs between sender and receiver. For each facet $f \in \{M, S, C\}$ of variable $v_i$, the comparison produces one bit:
+\[
+\omega_i^f = 
+\begin{cases}
+0 & \text{if the URLs match (aligned)} \\
+1 & \text{if the URLs do not match (misaligned)}
+\end{cases}
+\]
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{figure_3.png}
+\caption{Dark uncertainty at a boundary between two
+coherence units. The string \texttt{"05/04/2026"}
+is identical in both, but Coherence Unit~A reads it
+as May~4th (\texttt{MM/DD/YYYY}) while Coherence
+Unit~B reads it as April~5th (\texttt{DD/MM/YYYY}).
+The Data facet matches---the string is the same---but
+the Structure facet does not. Each axis position
+represents a different four-facet configuration. The
+misalignment is invisible to any system that checks
+only the raw value.}
+\label{fig:boundary}
+\end{figure}
+
+This output is not a modeling simplification applied to a richer space. It is the instrument's native resolution. URLs either match or they do not. There is no partial match, no degree of similarity, no continuous distance. The binary encoding is inherent.
+
+% ============================================================
+\section{The Configuration Space}
+\label{sec:space}
+% ============================================================
+
+Let a boundary involve $m$ shared variables. Each variable produces three bits (one per facet). The full configuration vector is:
+\[
+\omega = (\omega_1^M, \omega_1^S, \omega_1^C, \;\omega_2^M, \omega_2^S, \omega_2^C, \;\ldots,\; \omega_m^M, \omega_m^S, \omega_m^C) \;\in\; \{0,1\}^{3m}
+\]
+Let $n = 3m$. 
+
+\begin{definition}[Coherence unit]
+A single variable $v_i$ together with its three facet
+comparisons $(\omega_i^M, \omega_i^S, \omega_i^C) \in \{0,1\}^3$
+is a \emph{coherence unit}.  It is the atomic element of
+boundary measurement: the smallest object whose alignment
+state is independently verifiable.  A boundary with $m$
+shared variables comprises $m$ coherence units, and
+the full configuration space is the product of their
+individual cubes: $\{0,1\}^3 \times \cdots \times \{0,1\}^3
+= \{0,1\}^{3m}$.
+\end{definition}
+
+
+
+The configuration space is the Hamming cube:
+\[
+\Omega = \{0,1\}^n, \qquad |\Omega| = 2^n
+\]
+The aligned configuration $\omega^* = (0, 0, \ldots, 0)$ is the state where every URL matches---no misalignment on any facet of any variable.
+
+\begin{definition}[Hamming distance]
+For $\omega, \omega' \in \{0,1\}^n$:
+\[
+d_H(\omega, \omega') = \sum_{j=1}^{n} |\omega_j - \omega'_j|
+\]
+\end{definition}
+
+\noindent This counts the number of facets on which two configurations disagree. It requires only the comparison ``same or different''---exactly the comparison the protocol performs. The metric is produced by the instrument, not imposed on the problem.
+
+\begin{definition}[Hamming ball]
+The Hamming ball of radius $r$ centered at $\omega^*$:
+\[
+B_r(\omega^*) = \{\omega \in \Omega : d_H(\omega, \omega^*) \leq r\}
+\]
+with volume:
+\[
+|B_r| = \sum_{k=0}^{r} \binom{n}{k}
+\]
+\end{definition}
+
+% ============================================================
+\section{The Dark Fraction Theorem}
+\label{sec:theorem}
+% ============================================================
+
+\begin{theorem}[Dark Fraction Bound]
+\label{thm:main}
+Let $\Omega = \{0,1\}^n$ with $n = 3m$ be the configuration space of a boundary with $m$ shared variables. Let $r$ facets be verified through cross-boundary measurement. The verified fraction is:
+\[
+\phi(n, r) = \frac{1}{2^n} \sum_{k=0}^{r} \binom{n}{k}
+\]
+The dark fraction---the fraction of configurations that no within-boundary diagnostic can reach---is:
+\[
+\delta(n, r) = 1 - \phi(n, r)
+\]
+\end{theorem}
+
+\begin{proof}
+Verification of a facet determines its value: 0 or 1. A configuration $\omega$ is covered by $r$ verifications if it differs from $\omega^*$ in at most $r$ positions---that is, if $d_H(\omega, \omega^*) \leq r$. The set of such configurations is $B_r(\omega^*)$. Its cardinality is $\sum_{k=0}^{r}\binom{n}{k}$ (choosing which $k$ of $n$ positions differ, for each $k \leq r$). The cube has $2^n$ elements. The ratio follows.
+\end{proof}
+
+\begin{corollary}[Concentration]
+\label{cor:conc}
+For any fixed verification budget $r$:
+\[
+\lim_{n \to \infty} \phi(n, r) = 0
+\]
+\end{corollary}
+
+\begin{proof}
+$|B_r|$ is a polynomial in $n$ of degree $r$. $|\Omega| = 2^n$ is exponential. Polynomial divided by exponential vanishes.
+\end{proof}
+
+\begin{corollary}[Marginal return]
+\label{cor:marginal}
+The reduction in dark fraction from verifying the $(r+1)$-th facet is:
+\[
+\phi(n, r+1) - \phi(n, r) = \frac{1}{2^n}\binom{n}{r+1}
+\]
+\end{corollary}
+
+\begin{proof}
+The ball of radius $r+1$ contains exactly $\binom{n}{r+1}$ configurations not in the ball of radius $r$---those at Hamming distance exactly $r+1$ from~$\omega^*$.
+\end{proof}
+
+\subsection{Concrete values}
+
+\begin{center}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+Variables $m$ & Facets $n$ & Verified $r$ & $|B_r|$ & $|\Omega|$ & Dark fraction $\delta$ \\
+\midrule
+5 & 15 & 3 & 576 & 32{,}768 & 98.2\% \\
+10 & 30 & 5 & 174{,}437 & $1.07 \times 10^9$ & 99.98\% \\
+20 & 60 & 10 & ${\sim}7.5 \times 10^{10}$ & ${\sim}1.15 \times 10^{18}$ & ${\sim}99.9999993\%$ \\
+50 & 150 & 20 & ${\sim}4.5 \times 10^{25}$ & ${\sim}1.43 \times 10^{45}$ & ${\sim}1 - 10^{-20}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Asymptotic form}
+
+For $r = \alpha n$ with $\alpha < 1/2$:
+\[
+\delta \;\approx\; 1 - 2^{\,n(H_2(\alpha)\,-\,1)}
+\]
+where $H_2(\alpha) = -\alpha\log_2\alpha - (1{-}\alpha)\log_2(1{-}\alpha)$ is the binary entropy. Since $H_2(\alpha) < 1$ for $\alpha < 1/2$, the dark fraction approaches $1$ exponentially in $n$.
+
+% ============================================================
+\section{Predictions}
+\label{sec:predictions}
+% ============================================================
+
+The mapping from four-facet protocol to Hamming geometry produces predictions not available from either component alone:
+
+\medskip\noindent\textbf{1. A computable coherence metric.} For any boundary with known $m$ and $r$, the dark fraction $\delta(3m, r)$ is an exact rational number. No prior framework provides a quantitative measure of how much of a system boundary's configuration space is unmonitored.
+
+\medskip\noindent\textbf{2. Verification has computable diminishing returns.} The marginal gain from the $(r{+}1)$-th verification is $\binom{n}{r+1}/2^n$ (Corollary~\ref{cor:marginal}). This tells an organization exactly how much additional coverage each verification buys, and proves that after a threshold, further effort yields negligible improvement.
+
+\medskip\noindent\textbf{3. Scale guarantees degradation.} Corollary~\ref{cor:conc} proves that for any fixed verification budget, adding variables to a boundary drives the dark fraction toward~$1$. Systems that grow in complexity---more columns, more fields, more parameters---become less coherent even if verification effort stays constant.
+
+\medskip\noindent\textbf{4. Inferred metadata does not reduce the dark fraction.} A system that auto-tags a column (e.g., inferring ``transaction date'' from a column named \texttt{date}) has not verified a facet. It has produced a hypothesis inside the dark region. The dark fraction is unchanged. This is a testable prediction: existing metadata tools that infer without confirming produce no reduction in $\delta$.
+
+\section{Future Work}
+The coherence unit admits typed specializations---a
+\emph{decision unit} for decision intelligence, a
+\emph{knowledge unit} for knowledge graphs---each
+inheriting the same four-facet gauge. Because the
+gauge is uniform across types, coherence units of
+different types can be composed and compared using
+the same geometric framework. Exploring operations
+on networks of heterogeneous coherence units is a
+natural next step.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{figure_2.png}
+\caption{Coherence unit networks. Left: a single coherence unit with three axes (input, internal process, output), each carrying four-facet configurations. Bottom: array of coherence units. The product of their individual cubes $\{0,1\}^3$ produces the full configuration space $\{0,1\}^{3m}$. Dark uncertainty is a collective property of the array---it cannot be observed from within any single unit.}
+\label{fig:network}
+\end{figure}
+
+% ============================================================
+\section{Falsification Criteria}
+\label{sec:falsification}
+% ============================================================
+
+\noindent\textbf{Criterion 1 (Completeness).} Produce a boundary misalignment that does not manifest as a URL mismatch on any of the three facets. This would show that $n = 3m$ understates the configuration space and $\delta$ is underestimated.
+
+\medskip\noindent\textbf{Criterion 2 (Isotropy).} Produce a systematic case where operational cost depends on \emph{which} facets are misaligned, not just \emph{how many}. This would show the Hamming ball is the wrong shape and a weighted metric is needed. (The Hamming bound remains valid as a conservative envelope.)
+
+\medskip\noindent\textbf{Criterion 3 (Compressibility).} Build a working instrument that exploits correlations between facets to compress the effective configuration space below $2^{3m}$. Until such an instrument exists, the full cube is the space the organization operates in.
+
+% ============================================================
+\section{What This Does and Does Not Claim}
+\label{sec:scope}
+% ============================================================
+
+\textbf{Claims:}
+\begin{enumerate}
+\item The four-facet protocol produces binary coordinates on the boundary configuration space.
+\item The Hamming distance is the natural metric on this space---induced by the protocol, not imposed.
+\item The verified region is a Hamming ball with computable volume.
+\item The dark fraction is computable and goes to $1$ as variables grow.
+\end{enumerate}
+
+\noindent\textbf{Does not claim:}
+\begin{itemize}
+\item That all misalignments are equally costly. (Payoff structure determines cost.)
+\item That the dark fraction equals risk. (It measures unverifiability, not expected loss.)
+\item That three facets are the only possible decomposition. (Alternative gauges yield different cubes; the framework applies to any gauge.)
+\end{itemize}
+
+% ============================================================
+% References
+% ============================================================
+
+\begin{thebibliography}{9}
+
+\bibitem{hamming1950}
+R.~W. Hamming, ``Error detecting and error correcting codes,'' \emph{Bell System Technical Journal}, vol.~29, no.~2, pp.~147--160, 1950.
+
+\bibitem{macwilliams1977}
+F.~J. MacWilliams and N.~J.~A. Sloane, \emph{The Theory of Error-Correcting Codes}. North-Holland, 1977.
+
+\bibitem{blum2020}
+A.~Blum, J.~Hopcroft, and R.~Kannan, \emph{Foundations of Data Science}. Cambridge University Press, 2020.
+
+\bibitem{itelman2026protocol}
+W3C Context Graph Community Group, ``Coherence Protocol Specification,'' \url{https://w3c-context-graph-community-group.github.io/protocol/}, 2026.
+
+\end{thebibliography}
+
+\end{document}

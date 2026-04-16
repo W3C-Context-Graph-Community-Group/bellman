@@ -8,6 +8,7 @@ export function MetricsHeader() {
   const totalSteps = usePolytopeStore((s) => s.totalSteps);
   const ghostCount = usePolytopeStore((s) => s.ghostCount);
   const rotations = usePolytopeStore((s) => s.rotations);
+  const setShowGuide = usePolytopeStore((s) => s.setShowGuide);
 
   const aliveCount = vertices.filter((v) => v.status === 'alive').length;
   const eliminatedCount = vertices.filter((v) => v.status === 'eliminated').length;
@@ -40,7 +41,16 @@ export function MetricsHeader() {
           <span className="pill-value">{rotations}</span>
         </div>
       </div>
-      <ViewToggle />
+      <div className="header-actions">
+        <button
+          className="guide-btn"
+          onClick={() => setShowGuide(true)}
+          title="How to use this visualisation"
+        >
+          ?
+        </button>
+        <ViewToggle />
+      </div>
     </div>
   );
 }

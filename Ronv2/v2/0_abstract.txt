@@ -1,0 +1,217 @@
+The Dark Fraction Theorem:
+A Geometric Bound on Unverifiable Configurations
+at System Boundaries
+Ron Itelman∗ Jacek Kowalski†
+April 2026
+Working paper
+
+Abstract
+We present a protocol that decomposes each variable at a system boundary into three
+binary facets—Meaning, Structure, and Context—and show that this decomposition induces
+a Hamming cube {0, 1}³ᵐ as the natural configuration space for m variables. Verification
+of r facets covers a Hamming ball whose volume is computable exactly. The ratio of ball to
+cube—the verified fraction—goes to zero as m grows. The complement—the dark fraction—
+measures the portion of the configuration space that no within-system diagnostic can reach.
+This quantity is new: no prior framework provides a computable metric for unverifiable
+boundary configurations. The mathematics is standard. The contribution is the mapping
+from protocol to geometry and the predictions it enables.
+
+1 The Protocol
+When data crosses a boundary between two systems, each variable carries a value and an inter-
+pretation. The protocol requires the interpretation to be registered through three facets, each
+resolved to a URL:
+
+Facet          What is registered
+Meaning        What the value refers to (e.g., trade execution date vs.
+               settlement date)
+Structure      How the value is encoded (e.g., MM/DD/YYYY vs.
+               DD/MM/YYYY)
+Context        Conditions under which Meaning and Structure hold
+               (e.g., US market / NYSE / Eastern time)
+
+A fourth facet, Data, is the raw value itself—it crosses the boundary directly and requires no
+registration. The three registered facets produce the binary coordinates used in the proof.
+
+∗Chair, W3C Context Graph Community Group. ORCID: 0009-0009-4059-728X.
+†Chair, Mathematics Committee, W3C Context Graph Community Group.
+
+Figure 1: Context Graph Fundamentals. A two-column dataset (Oil Price, Date) with all four
+facets registered. The bottom row shows the geometric consequence: from null uncertainty (no
+axes exist for collective measurement) through dark uncertainty (axes exist, positions unknown)
+to collapsed uncertainty (a single verified point). Each cell can be diffed as a URL: match or
+mismatch.
+
+At every boundary, the protocol compares each shared variable’s URLs between sender and
+receiver. For each facet f ∈ {M, S, C} of variable vᵢ, the comparison produces one bit:
+
+ωᶠᵢ = ( 0 if the URLs match (aligned)
+        1 if the URLs do not match (misaligned) )
+
+Figure 2: Dark uncertainty at a boundary between two coherence units. The string
+"05/04/2026" is identical in both, but Coherence Unit A reads it as May 4th (MM/DD/YYYY)
+while Coherence Unit B reads it as April 5th (DD/MM/YYYY). The Data facet matches—the string
+is the same—but the Structure facet does not. Each axis position represents a different four-
+facet configuration. The misalignment is invisible to any system that checks only the raw value.
+
+This output is not a modeling simplification applied to a richer space. It is the instrument’s
+native resolution. URLs either match or they do not. There is no partial match, no degree of
+similarity, no continuous distance. The binary encoding is inherent.
+
+2 The Configuration Space
+Let a boundary involve m shared variables. Each variable produces three bits (one per facet).
+The full configuration vector is:
+
+ω = (ωᴹ₁ , ωˢ₁ , ωᶜ₁ , ωᴹ₂ , ωˢ₂ , ωᶜ₂ , … , ωᴹₘ , ωˢₘ, ωᶜₘ) ∈ {0, 1}³ᵐ
+
+Let n = 3m.
+
+Definition 1 (Coherence unit). A single variable vᵢ together with its three facet comparisons
+(ωᴹᵢ , ωˢᵢ , ωᶜᵢ ) ∈ {0, 1}³ is a coherence unit. It is the atomic element of boundary measurement:
+the smallest object whose alignment state is independently verifiable. A boundary with m shared
+variables comprises m coherence units, and the full configuration space is the product of their
+individual cubes: {0, 1}³ × ⋯ × {0, 1}³ = {0, 1}³ᵐ.
+
+The configuration space is the Hamming cube:
+
+Ω = {0, 1}ⁿ, |Ω| = 2ⁿ
+
+The aligned configuration ω∗ = (0, 0, …, 0) is the state where every URL matches—no mis-
+alignment on any facet of any variable.
+
+Definition 2 (Hamming distance). For ω, ω′ ∈ {0, 1}ⁿ:
+
+dₕ(ω, ω′) = Σⱼ₌₁ⁿ |ωⱼ − ω′ⱼ|
+
+This counts the number of facets on which two configurations disagree. It requires only the
+comparison “same or different”—exactly the comparison the protocol performs. The metric is
+produced by the instrument, not imposed on the problem.
+
+Definition 3 (Hamming ball). The Hamming ball of radius r centered at ω∗:
+
+Bᵣ(ω∗) = {ω ∈ Ω : dₕ(ω, ω∗) ≤ r}
+
+with volume:
+
+|Bᵣ| = Σₖ₌₀ʳ (n choose k)
+
+3 The Dark Fraction Theorem
+Theorem 4 (Dark Fraction Bound). Let Ω = {0, 1}ⁿ with n = 3m be the configuration space of
+a boundary with m shared variables. Let r facets be verified through cross-boundary measurement.
+The verified fraction is:
+
+ϕ(n, r) = 1/2ⁿ ⋅ Σₖ₌₀ʳ (n choose k)
+
+The dark fraction—the fraction of configurations that no within-boundary diagnostic can reach—
+is:
+
+δ(n, r) = 1 − ϕ(n, r)
+
+Proof. Verification of a facet determines its value: 0 or 1. A configuration ω is covered by r
+verifications if it differs from ω∗ in at most r positions—that is, if dₕ(ω, ω∗) ≤ r. The set of such
+configurations is Bᵣ(ω∗). Its cardinality is Σₖ₌₀ʳ (n choose k) (choosing which k of n positions differ, for
+each k ≤ r). The cube has 2ⁿ elements. The ratio follows.
+
+Corollary 5 (Concentration). For any fixed verification budget r:
+
+limₙ→∞ ϕ(n, r) = 0
+
+Proof. |Bᵣ| is a polynomial in n of degree r. |Ω| = 2ⁿ is exponential. Polynomial divided by
+exponential vanishes.
+
+Corollary 6 (Marginal return). The reduction in dark fraction from verifying the (r + 1)-th
+facet is:
+
+ϕ(n, r + 1) − ϕ(n, r) = 1/2ⁿ ⋅ (n choose r+1)
+
+Proof. The ball of radius r + 1 contains exactly (n choose r+1) configurations not in the ball of radius
+r—those at Hamming distance exactly r + 1 from ω∗.
+
+3.1 Concrete values
+Variables m | Facets n | Verified r | |Bᵣ|          | |Ω|             | Dark fraction δ
+5             15         3            576            32 768           98.2%
+10            30         5            174 437        1.07 × 10⁹      99.98%
+20            60         10           ∼7.5 × 10¹⁰    ∼1.15 × 10¹⁸    ∼99.9999993%
+50            150        20           ∼4.5 × 10²⁵    ∼1.43 × 10⁴⁵    ∼1 − 10⁻²⁰
+
+3.2 Asymptotic form
+For r = αn with α < 1/2:
+
+δ ≈ 1 − 2^{n(H₂(α) − 1)}
+
+where H₂(α) = −α log₂ α − (1−α) log₂(1−α) is the binary entropy. Since H₂(α) < 1 for α < 1/2,
+the dark fraction approaches 1 exponentially in n.
+
+4 Predictions
+The mapping from four-facet protocol to Hamming geometry produces predictions not available
+from either component alone:
+
+1. A computable coherence metric. For any boundary with known m and r, the dark
+fraction δ(3m, r) is an exact rational number. No prior framework provides a quantitative
+measure of how much of a system boundary’s configuration space is unmonitored.
+
+2. Verification has computable diminishing returns. The marginal gain from the (r+1)-
+th verification is (n choose r+1)/2ⁿ (Corollary 6). This tells an organization exactly how much additional
+coverage each verification buys, and proves that after a threshold, further effort yields negligible
+improvement.
+
+3. Scale guarantees degradation. Corollary 5 proves that for any fixed verification bud-
+get, adding variables to a boundary drives the dark fraction toward 1. Systems that grow in
+complexity—more columns, more fields, more parameters—become less coherent even if verifi-
+cation effort stays constant.
+
+4. Inferred metadata does not reduce the dark fraction. A system that auto-tags a
+column (e.g., inferring “transaction date” from a column named date) has not verified a facet.
+It has produced a hypothesis inside the dark region. The dark fraction is unchanged. This is a
+testable prediction: existing metadata tools that infer without confirming produce no reduction
+in δ.
+
+5 Future Work
+The coherence unit admits typed specializations—a decision unit for decision intelligence, a
+knowledge unit for knowledge graphs—each inheriting the same four-facet gauge. Because the
+gauge is uniform across types, coherence units of different types can be composed and com-
+pared using the same geometric framework. Exploring operations on networks of heterogeneous
+coherence units is a natural next step.
+
+Figure 3: Coherence unit networks. Left: a single coherence unit with three axes (input, internal
+process, output), each carrying four-facet configurations. Bottom: array of coherence units. The
+product of their individual cubes {0, 1}³ produces the full configuration space {0, 1}³ᵐ. Dark
+uncertainty is a collective property of the array—it cannot be observed from within any single
+unit.
+
+6 Falsification Criteria
+Criterion 1 (Completeness). Produce a boundary misalignment that does not manifest as
+a URL mismatch on any of the three facets. This would show that n = 3m understates the
+configuration space and δ is underestimated.
+
+Criterion 2 (Isotropy). Produce a systematic case where operational cost depends on which
+facets are misaligned, not just how many. This would show the Hamming ball is the wrong
+shape and a weighted metric is needed. (The Hamming bound remains valid as a conservative
+envelope.)
+
+Criterion 3 (Compressibility). Build a working instrument that exploits correlations between
+facets to compress the effective configuration space below 2³ᵐ. Until such an instrument exists,
+the full cube is the space the organization operates in.
+
+7 What This Does and Does Not Claim
+Claims:
+1. The four-facet protocol produces binary coordinates on the boundary configuration space.
+2. The Hamming distance is the natural metric on this space—induced by the protocol, not
+imposed.
+3. The verified region is a Hamming ball with computable volume.
+4. The dark fraction is computable and goes to 1 as variables grow.
+
+Does not claim:
+• That all misalignments are equally costly. (Payoff structure determines cost.)
+• That the dark fraction equals risk. (It measures unverifiability, not expected loss.)
+• That three facets are the only possible decomposition. (Alternative gauges yield different
+cubes; the framework applies to any gauge.)
+
+References
+[1] R. W. Hamming, “Error detecting and error correcting codes,” Bell System Technical Journal,
+vol. 29, no. 2, pp. 147–160, 1950.
+[2] F. J. MacWilliams and N. J. A. Sloane, The Theory of Error-Correcting Codes. North-
+Holland, 1977.
+[3] A. Blum, J. Hopcroft, and R. Kannan, Foundations of Data Science. Cambridge University
+Press, 2020.
+[4] W3C Context Graph Community Group, “Coherence Protocol Specification,” https://
+w3c-context-graph-community-group.github.io/protocol/, 2026.

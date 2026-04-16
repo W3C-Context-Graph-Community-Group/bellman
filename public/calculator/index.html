@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dark Fraction δ Calculator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; overflow: hidden; }
+    body { background: #f5f5f5; }
+  </style>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-type="module">
+const { useState, useMemo, useCallback } = React;
+
+// --- Math utilities using logarithms to handle large numbers ---
+function logBinom(n, k) {
+  if (k < 0 || k > n) return -Infinity;
+  if (k === 0 || k === n) return 0;
+  if (k > n - k) k = n - k;
+  let result = 0;
+  for (let i = 0; i < k; i++) {
+    result += Math.log2(n - i) - Math.log2(i + 1);
+  }
+  return result;
+}
+
+function logHammingBall(n, r) {
+  if (r >= n) return n;
+  if (r < 0) return -Infinity;
+  let maxLog = logBinom(n, 0);
+  for (let k = 1; k <= r; k++) {
+    maxLog = Math.max(maxLog, logBinom(n, k));
+  }
+  let sum = 0;
+  for (let k = 0; k <= r; k++) {
+    sum += Math.pow(2, logBinom(n, k) - maxLog);
+  }
+  return maxLog + Math.log2(sum);
+}
+
+function computeDarkFraction(m, r) {
+  const n = 3 * m;
+  if (n === 0) return { delta: 0, phi: 1, logBr: 0, logOmega: 0, n, exact: true };
+  if (r >= n) return { delta: 0, phi: 1, logBr: n, logOmega: n, n, exact: true };
+  const logOmega = n;
+  const logBr = logHammingBall(n, r);
+  const phi = Math.pow(2, logBr - logOmega);
+  const delta = 1 - phi;
+  return { delta, phi, logBr, logOmega, n, exact: false };
+}
+
+function formatLargeNumber(logVal) {
+  if (logVal <= 0) return "1";
+  const log10Val = logVal * Math.log10(2);
+  if (log10Val < 6) {
+    return Math.round(Math.pow(2, logVal)).toLocaleString();
+  }
+  const mantissa = Math.pow(10, log10Val - Math.floor(log10Val));
+  const exponent = Math.floor(log10Val);
+  return `${mantissa.toFixed(2)} × 10^${exponent}`;
+}
+
+function formatDelta(delta) {
+  if (delta === 0) return "0%";
+  if (delta === 1) return "100%";
+  if (delta >= 0.99999) {
+    const nines = -Math.log10(1 - delta);
+    return `≈ ${"9".repeat(Math.min(Math.floor(nines), 12))}.${"9".repeat(Math.max(0, Math.min(Math.ceil(nines) - Math.floor(nines) > 0 ? 1 : 0, 4)))}%`.replace(/\.$/, "%");
+  }
+  if (delta > 0.9999) return `${(delta * 100).toFixed(6)}%`;
+  if (delta > 0.99) return `${(delta * 100).toFixed(4)}%`;
+  return `${(delta * 100).toFixed(2)}%`;
+}
+
+// --- Components ---
+
+const FACET_LABELS = ["M", "S", "C"];
+const FACET_NAMES = ["Meaning", "Structure", "Context"];
+const FACET_COLORS = ["#FF6B6B", "#4ECDC4", "#FFE66D"];
+
+function FacetToggle({ active, color, label, fullName, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={fullName}
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        border: active ? `2px solid ${color}` : "2px solid #ddd",
+        background: active ? `${color}18` : "#fff",
+        color: active ? color : "#aaa",
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {active && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: `radial-gradient(circle at center, ${color}15, transparent)`,
+          }}
+        />
+      )}
+      <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
+    </button>
+  );
+}
+
+function VariableRow({ variable, index, onToggleFacet, onRemove, onRename }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(variable.name);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 12px",
+        background: "#f9f9f9",
+        borderRadius: 10,
+        border: "1px solid #eee",
+      }}
+    >
+      <span
+        style={{
+          color: "#999",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+          width: 24,
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        v{index + 1}
+      </span>
+      {editing ? (
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => { onRename(name); setEditing(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { onRename(name); setEditing(false); } }}
+          style={{
+            flex: 1,
+            background: "#f5f5f5",
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            padding: "4px 8px",
+            color: "#333",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 13,
+            outline: "none",
+            minWidth: 0,
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => setEditing(true)}
+          style={{
+            flex: 1,
+            color: "#555",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 13,
+            cursor: "text",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          {variable.name}
+        </span>
+      )}
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        {FACET_LABELS.map((label, i) => (
+          <FacetToggle
+            key={label}
+            active={variable.facets[i]}
+            color={FACET_COLORS[i]}
+            label={label}
+            fullName={FACET_NAMES[i]}
+            onClick={() => onToggleFacet(i)}
+          />
+        ))}
+      </div>
+      <button
+        onClick={onRemove}
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 6,
+          border: "1px solid #e0e0e0",
+          background: "transparent",
+          color: "#bbb",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 16,
+          fontFamily: "system-ui",
+          flexShrink: 0,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function DarkFractionGauge({ delta, phi }) {
+  const circumference = 2 * Math.PI * 90;
+  const darkArc = circumference * delta;
+  const verifiedArc = circumference * phi;
+
+  return (
+    <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto" }}>
+      <svg viewBox="0 0 200 200" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
+        <circle cx="100" cy="100" r="90" fill="none" stroke="#e8e8e8" strokeWidth="16" />
+        <circle
+          cx="100" cy="100" r="90"
+          fill="none"
+          stroke="#FF6B6B"
+          strokeWidth="16"
+          strokeDasharray={`${darkArc} ${circumference - darkArc}`}
+          strokeDashoffset="0"
+          strokeLinecap="round"
+          style={{ transition: "stroke-dasharray 0.6s ease" }}
+        />
+        <circle
+          cx="100" cy="100" r="90"
+          fill="none"
+          stroke="#4ECDC4"
+          strokeWidth="16"
+          strokeDasharray={`${verifiedArc} ${circumference - verifiedArc}`}
+          strokeDashoffset={`${-darkArc}`}
+          strokeLinecap="round"
+          style={{ transition: "all 0.6s ease" }}
+        />
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 28,
+            fontWeight: 800,
+            color: "#FF6B6B",
+            lineHeight: 1,
+          }}
+        >
+          δ
+        </div>
+        <div
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 16,
+            color: "#555",
+            marginTop: 4,
+          }}
+        >
+          {formatDelta(delta)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, color, sub }) {
+  return (
+    <div
+      style={{
+        background: "#f9f9f9",
+        border: "1px solid #eee",
+        borderRadius: 12,
+        padding: "14px 16px",
+        flex: 1,
+        minWidth: 130,
+      }}
+    >
+      <div style={{ color: "#999", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ color: color || "#555", fontSize: 18, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, lineHeight: 1.2 }}>
+        {value}
+      </div>
+      {sub && (
+        <div style={{ color: "#bbb", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MarginalReturnBar({ m, r }) {
+  const n = 3 * m;
+  if (n === 0 || r >= n) return null;
+
+  const bars = [];
+  const maxBars = Math.min(n, 30);
+  let maxVal = -Infinity;
+
+  for (let k = 0; k < maxBars; k++) {
+    const val = logBinom(n, k + 1) - n;
+    if (val > maxVal) maxVal = val;
+  }
+
+  for (let k = 0; k < maxBars; k++) {
+    const logMarginal = logBinom(n, k + 1) - n;
+    const height = Math.max(2, ((logMarginal - (maxVal - 10)) / 10) * 60);
+    const isVerified = k < r;
+    bars.push(
+      <div
+        key={k}
+        title={`Facet ${k + 1}: marginal gain`}
+        style={{
+          width: Math.max(4, Math.floor(260 / maxBars) - 2),
+          height: Math.max(2, height),
+          background: isVerified ? "#4ECDC4" : "#ddd",
+          borderRadius: 2,
+          transition: "all 0.3s ease",
+          opacity: isVerified ? 1 : 0.5,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ color: "#999", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+        Marginal return per facet
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 64 }}>
+        {bars}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        <span style={{ color: "#bbb", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>1</span>
+        <span style={{ color: "#bbb", fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>{maxBars}</span>
+      </div>
+    </div>
+  );
+}
+
+const PRESETS = [
+  {
+    name: "Bond Trading (from paper)",
+    variables: [
+      { name: "Date", facets: [false, false, false] },
+      { name: "Oil Price", facets: [false, false, false] },
+      { name: "Location", facets: [false, false, false] },
+      { name: "Trade ID", facets: [false, false, false] },
+      { name: "Counterparty", facets: [false, false, false] },
+    ],
+  },
+  {
+    name: "Simple API (2 vars)",
+    variables: [
+      { name: "user_id", facets: [true, true, false] },
+      { name: "timestamp", facets: [false, false, false] },
+    ],
+  },
+  {
+    name: "Paper Table: m=5, r=3",
+    variables: [
+      { name: "var_1", facets: [true, false, false] },
+      { name: "var_2", facets: [true, false, false] },
+      { name: "var_3", facets: [true, false, false] },
+      { name: "var_4", facets: [false, false, false] },
+      { name: "var_5", facets: [false, false, false] },
+    ],
+  },
+];
+
+let nextId = 100;
+
+function DarkFractionCalculator() {
+  const [variables, setVariables] = useState([
+    { id: 1, name: "Date", facets: [false, false, false] },
+    { id: 2, name: "Oil Price", facets: [true, true, true] },
+    { id: 3, name: "Location", facets: [true, false, false] },
+  ]);
+
+  const m = variables.length;
+  const r = variables.reduce((sum, v) => sum + v.facets.filter(Boolean).length, 0);
+  const result = useMemo(() => computeDarkFraction(m, r), [m, r]);
+
+  const addVariable = useCallback(() => {
+    setVariables((prev) => [
+      ...prev,
+      { id: nextId++, name: `variable_${prev.length + 1}`, facets: [false, false, false] },
+    ]);
+  }, []);
+
+  const removeVariable = useCallback((id) => {
+    setVariables((prev) => prev.filter((v) => v.id !== id));
+  }, []);
+
+  const toggleFacet = useCallback((id, facetIndex) => {
+    setVariables((prev) =>
+      prev.map((v) =>
+        v.id === id
+          ? { ...v, facets: v.facets.map((f, i) => (i === facetIndex ? !f : f)) }
+          : v
+      )
+    );
+  }, []);
+
+  const renameVariable = useCallback((id, name) => {
+    setVariables((prev) => prev.map((v) => (v.id === id ? { ...v, name } : v)));
+  }, []);
+
+  const loadPreset = useCallback((preset) => {
+    setVariables(
+      preset.variables.map((v, i) => ({ ...v, id: nextId++ }))
+    );
+  }, []);
+
+  const verifyAll = useCallback(() => {
+    setVariables((prev) => prev.map((v) => ({ ...v, facets: [true, true, true] })));
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setVariables((prev) => prev.map((v) => ({ ...v, facets: [false, false, false] })));
+  }, []);
+
+  return (
+    <div
+      style={{
+        height: "100vh",
+        background: "#f5f5f5",
+        color: "#333",
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        display: "flex",
+        overflow: "hidden",
+      }}
+    >
+      <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+
+      {/* LEFT COLUMN — visualization & stats */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px 40px",
+          overflowY: "auto",
+          borderRight: "1px solid #e0e0e0",
+        }}
+      >
+        <div style={{ maxWidth: 520, width: "100%" }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <h1
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: "#222",
+                margin: "0 0 4px 0",
+                letterSpacing: -0.5,
+              }}
+            >
+              Dark Fraction
+              <span style={{ color: "#FF6B6B" }}> δ</span>
+            </h1>
+            <p style={{ color: "#999", fontSize: 12, margin: 0, fontWeight: 400 }}>
+              Boundary coherence calculator
+            </p>
+          </div>
+
+          {/* Gauge card */}
+          <div style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 16, padding: "24px 24px 16px", marginBottom: 16 }}>
+            <DarkFractionGauge delta={result.delta} phi={result.phi} />
+
+            {/* Legend */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: "#FF6B6B" }} />
+                <span style={{ fontSize: 11, color: "#888" }}>Dark</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: "#4ECDC4" }} />
+                <span style={{ fontSize: 11, color: "#888" }}>Verified</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats card */}
+          <div style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 16, padding: 20, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              <StatCard label="Variables (m)" value={m} color="#222" />
+              <StatCard label="Facets (n=3m)" value={result.n} color="#222" />
+              <StatCard label="Verified (r)" value={r} color="#3bb8ad" />
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <StatCard label="|Ω| configs" value={formatLargeNumber(result.logOmega)} color="#888" sub="2^n" />
+              <StatCard label="|Bᵣ| verified" value={formatLargeNumber(result.logBr)} color="#3bb8ad" sub="Hamming ball" />
+            </div>
+
+            {/* Marginal Returns */}
+            {m > 0 && <MarginalReturnBar m={m} r={r} />}
+          </div>
+
+          {/* Dark uncertainty explanation */}
+          {result.delta > 0.5 && m > 0 && (
+            <div
+              style={{
+                background: "#fff5f5",
+                border: "1px solid #ffcccc",
+                borderRadius: 12,
+                padding: 16,
+                marginTop: 16,
+              }}
+            >
+              <div style={{ color: "#FF6B6B", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                ⚠ Dark uncertainty dominates
+              </div>
+              <div style={{ color: "#666", fontSize: 12, lineHeight: 1.6 }}>
+                With {m} variables and {r} verified facets, {formatDelta(result.delta)} of the
+                configuration space is unreachable by any within-boundary diagnostic. The system
+                is operating somewhere in a space of {formatLargeNumber(result.logOmega)} configurations
+                but can only confirm {formatLargeNumber(result.logBr)} of them.
+              </div>
+            </div>
+          )}
+
+          {result.delta === 0 && m > 0 && (
+            <div
+              style={{
+                background: "#f0faf7",
+                border: "1px solid #b3e6d4",
+                borderRadius: 12,
+                padding: 16,
+                marginTop: 16,
+              }}
+            >
+              <div style={{ color: "#4ECDC4", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                ✓ Collapsed uncertainty
+              </div>
+              <div style={{ color: "#666", fontSize: 12, lineHeight: 1.6 }}>
+                All facets verified. The boundary occupies a single known point in the
+                configuration space.
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: 28,
+              paddingTop: 14,
+              borderTop: "1px solid #e0e0e0",
+              color: "#bbb",
+              fontSize: 10,
+            }}
+          >
+            δ(n,r) = 1 − (1/2ⁿ) Σ C(n,k) for k=0…r
+            <br />
+            <span style={{ color: "#ccc" }}>Itelman & Kowalski, 2026</span>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN — presets & boundary variables */}
+      <div
+        style={{
+          width: 480,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          padding: "32px 28px",
+          overflowY: "auto",
+        }}
+      >
+        {/* Presets card */}
+        <div style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 16, padding: 20, marginBottom: 16 }}>
+          <div style={{ color: "#999", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+            Presets
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {PRESETS.map((p) => (
+              <button
+                key={p.name}
+                onClick={() => loadPreset(p)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #e0e0e0",
+                  background: "#f9f9f9",
+                  color: "#666",
+                  fontSize: 11,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  cursor: "pointer",
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Variables card */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 16, padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ color: "#999", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+              Boundary variables
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={clearAll}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #e0e0e0",
+                  background: "#f9f9f9",
+                  color: "#FF6B6B",
+                  fontSize: 10,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  cursor: "pointer",
+                }}
+              >
+                Clear all
+              </button>
+              <button
+                onClick={verifyAll}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #e0e0e0",
+                  background: "#f9f9f9",
+                  color: "#4ECDC4",
+                  fontSize: 10,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  cursor: "pointer",
+                }}
+              >
+                Verify all
+              </button>
+            </div>
+          </div>
+
+          {/* Facet legend row */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 6, paddingRight: 38 }}>
+            {FACET_NAMES.map((name, i) => (
+              <div
+                key={name}
+                style={{
+                  width: 40,
+                  textAlign: "center",
+                  fontSize: 9,
+                  color: FACET_COLORS[i],
+                  opacity: 0.7,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {name.slice(0, 3).toUpperCase()}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {variables.map((v, i) => (
+              <VariableRow
+                key={v.id}
+                variable={v}
+                index={i}
+                onToggleFacet={(fi) => toggleFacet(v.id, fi)}
+                onRemove={() => removeVariable(v.id)}
+                onRename={(name) => renameVariable(v.id, name)}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={addVariable}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginTop: 8,
+              borderRadius: 10,
+              border: "1px dashed #ccc",
+              background: "#f9f9f9",
+              color: "#999",
+              fontSize: 13,
+              fontFamily: "'JetBrains Mono', monospace",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            + Add variable
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<DarkFractionCalculator />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+
+
+Operational Issue – Motion Matching / Pose Search Algorithm in Unreal Engine 5 (Pose Search Database)
+
+This is exactly the same scheme: precomputation of a large space of possible solutions + cheap runtime selection + local refinement of only the selected solution. Below I break it down operationally (based on UE5.4+ documentation and the official Pose Search workflow).
+
+Input (what is precomputed and what comes in at runtime)
+
+Offline (precomputation):
+
+    Set of source animations (Animation Sequences or Blendspaces).
+    Pose Search Schema – definition of “features” (feature vector): which bones, what positions/rotations/velocities, future trajectory points (e.g. 5–10 points ahead), heading, speed, etc. This is an n-dimensional feature space (n = several dozen to several hundred dimensions).
+    Pose Search Database (PSD) – everything goes here.
+
+Runtime (in real time):
+
+    Current character state (current pose, player input, intended trajectory).
+    Query vector built according to the same Schema.
+
+Operations (step by step – core of the algorithm)
+
+Phase 1: Precomputation (building the database – offline, once per asset)
+For every frame of every animation in the database:
+
+    Extract the feature vector exactly according to the Pose Search Schema (bone positions, velocities, trajectory, etc.).
+    Save this vector + reference to the specific frame in the specific animation.
+    Index the entire space (usually PCA for dimensionality reduction + KD-tree or another structure for Nearest Neighbor Search).
+
+Effect: you have a discrete, pre-solved database of thousands to tens of thousands of potential “next poses” (each animation frame is one ready-made solution).
+
+This is exactly “precalculation of the next pose and final settings” – the engine solves and remembers thousands of possible poses in advance.
+
+Phase 2: Runtime (in real time – per tick)
+Build the query vector from the current situation:
+
+    Take the “continuing pose” (most commonly) – i.e. what would be in the next frame of the current animation.
+    Or “character pose” (from Pose History).
+    Add the player/input trajectory (future movement points).
+
+Fast search in the PSD database (Nearest Neighbor in feature space):
+
+    Find the closest (lowest cost) precomputed vector from the database.
+    This is the selected “best matching next pose”.
+    Jump to that frame of the chosen animation as the source.
+
+Perform local refinement only for the selected solution:
+
+    Procedural fixup / IK / blending / root motion correction / intermediate poses.
+
+Everything else (thousands of other precomputed poses) remains “dark” – they are not even considered.
+
+This is exactly “at runtime selecting something that fits the interaction and only then recalculating intermediate poses closer to the given solution”.
+
+Output
+Smooth, responsive animation that looks as if the engine “knew” what to do in every situation.
+
+Runtime cost = cost of fast nearest-neighbor (very cheap) + very light procedural fixup only on the selected pose.
+The entire rest of the huge space of possible poses is skipped (“dark fraction” in the sense of computational cost).
+
+Why this is logically almost identical to Dark Fraction
+Large n-dimensional space (in Dark Fraction: 3m bits; here: high-n feature vector).
+Pre-paid cost to cover part of the space (verifying r facets vs. indexing the pose database).
+Runtime – only cheap selection from the pre-covered subspace + local refinement.
+Diminishing returns / dark fraction – the more animations you add, the larger the database, but still only the closest match is used; the rest remains unused.
+
+The calculation is trivial in both cases – it is the classic pattern “precomputation + fast query + local refinement” in a space that cannot be solved brute-force in realtime.

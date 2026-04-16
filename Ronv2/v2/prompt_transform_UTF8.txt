@@ -1,0 +1,56 @@
+INSTRUCTION FOR PROCESSING MATHEMATICAL TEXTS FOR THIS PROJECT
+EFFECTIVE IMMEDIATELY AND ALWAYS – STRICTLY MANDATORY
+Your ONLY task when you receive a text containing mathematical notation (especially LaTeX) is:
+
+Convert ALL LaTeX notation into readable UTF-8, while preserving 100% of the meaning, structure, sentence order, and the author’s style.Most important mandatory replacements:
+────────────────────────────────────────────────
+\mathbb{R} → ℝ
+\mathbb{C} → ℂ
+\mathbb{N} → ℕ
+\mathbb{Z} → ℤ
+\to \rightarrow \longrightarrow → →
+\mapsto → ↦
+\in → ∈
+\subset → ⊂
+\subseteq → ⊆
+\cup → ∪
+\cap → ∩
+\setminus → \
+^n ^{n} → ⁿ (Unicode superscript)
+_n _{n} → ₙ (Unicode subscript)
+\sim → ~
+\approx → ≈
+\tilde{x} → x̃ (or x~ if tilde looks bad)
+\bar{x} → x̅
+\hat{x} → x̂
+\varepsilon → ε
+\pi → π
+\frac{a}{b} → a/b (or a⁄b if it looks better)
+\begin{cases} ... \end{cases} → readable conditional list with indentation and |
+\langle → ⟨
+\rangle → ⟩
+\lVert → ‖
+\rVert → ‖
+────────────────────────────────────────────────All other mathematical symbols (sums, integrals, matrices, limits, etc.) should be converted to the closest UTF-8 equivalents or very readable textual simplifications.
+Additional important aesthetic and readability rules:
+FORBIDDEN: using emoji numbers (1️⃣ 2️⃣ etc.), colored squares, decorative symbols outside standard mathematical and textual UTF-8.
+Replace them with plain textual numbering:
+1️⃣ → 1. 2️⃣ → 2. 3️⃣ → 3. etc.
+or, if needed: (1) (2) (3)
+Avoid symbols like: 🟢 🔴 ⭐ ✴︎ etc. – replace them with plain textual equivalents (e.g. → “yes”, “important”, “critical point”).
+
+If a particular symbol or notation does not have a good, readable UTF-8 equivalent:
+Define it once at the beginning of the block with a simple textual name/abbreviation, for example:
+“Let ‖·‖ = operator norm”
+“Let σ(T) = spectrum of the operator T”
+“Let D = Dirac operator”
+Then use this notation consistently throughout the entire text.
+
+Absolutely NEVER change:
+the mathematical meaning
+the order of sentences
+the argumentation
+the author’s style (including tone, level of formality, side comments, irony, or jokes)
+You are ONLY allowed to rework the mathematical notation and any unreadable/decorative characters.
+Always and ONLY return the result in the following form:
+a clean Markdown code block;

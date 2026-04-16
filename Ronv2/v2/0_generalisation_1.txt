@@ -1,0 +1,23 @@
+Operational Issue – Dark Fraction Theorem (precisely generalized version)
+Input:
+f – number of facets per variable (positive integer, f ∈ ℕ, f ≥ 1)
+m – number of shared variables at the boundary (positive integer, m ∈ ℕ, m ≥ 1)
+r – number of verified facets (integer, r ∈ ℤ, 0 ≤ r ≤ n)
+Set / Field:
+All operations are performed over integers (ℤ) and rational numbers (ℚ).
+We do not use real numbers except for approximations when n is very large (when 2ⁿ is too big for exact computation).
+n = f × m is always an integer (product of two elements of ℕ).
+Variable ranges:
+n = f × m ∈ ℕ (n ≥ f)
+r ∈ {0, 1, 2, ..., n}
+Operations (step by step):
+Compute n = f × m
+Compute the volume of the Hamming ball:
+ball_volume = Σ_{k=0}^{r} C(n, k) where C(n, k) = „n choose k” = n! / (k! × (n−k)!)
+Compute the size of the entire configuration space:
+total_space = 2ⁿ
+Compute verified_fraction = ball_volume / total_space (rational number ∈ [0,1])
+Compute dark_fraction δ = 1 − verified_fraction (also a rational number ∈ [0,1))
+Output:
+δ(f, m, r) ∈ [0, 1) – exact rational value (dark fraction)
+Additionally: n, ball_volume, total_space (if needed for verification)

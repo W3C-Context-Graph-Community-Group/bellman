@@ -5,6 +5,7 @@ import { GridContainer } from './components/grid/GridContainer';
 import { FieldLegend } from './components/layout/FieldLegend';
 import { TimelineScrubber } from './components/panels/TimelineScrubber';
 import { EventDetailModal } from './components/modals/EventDetailModal';
+import { GuideModal } from './components/modals/GuideModal';
 import { usePolytopeStore } from './store/usePolytopeStore';
 import { useEntryAnimation } from './hooks/useEntryAnimation';
 // Design system & reset

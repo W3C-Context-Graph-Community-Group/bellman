@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import MiniSearch from 'minisearch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,91 +13,105 @@ const router = Router();
 
 const textIndexPath = path.join(DATA_DIR, 'sec_filings_text.jsonl');
 
-// GET /sec/search — API: search filings for RAG tool
-router.get('/search', (req, res) => {
-  const { ticker, year, q } = req.query;
-  console.log(`[SEC] GET /sec/search ticker=${ticker} year=${year} q=${q}`);
+// ---------------------------------------------------------------------------
+// Build MiniSearch index at startup: chunk each filing into ~500-word paragraphs
+// ---------------------------------------------------------------------------
+const chunks = [];    // id → { id, ticker, company, period, filing_date, filing_type, accession, text }
+const miniSearch = new MiniSearch({
+  fields: ['text'],                       // searchable field
+  storeFields: ['ticker', 'company', 'period', 'filing_date', 'filing_type', 'accession', 'text'],
+  searchOptions: {
+    boost: { text: 1 },
+    fuzzy: 0.2,
+    prefix: true,
+  },
+});
 
-  if (!ticker) {
-    return res.status(400).json({ error: 'ticker query parameter is required' });
-  }
-
-  let lines;
-  try {
-    lines = readFileSync(textIndexPath, 'utf-8').trim().split('\n');
-  } catch (e) {
-    return res.status(500).json({ error: 'Could not read filings text index' });
-  }
-
-  // Only parse lines matching the ticker to avoid parsing all 560
-  const tickerLower = ticker.toLowerCase();
-  let matches = [];
-  for (const line of lines) {
-    if (!line.includes(`"ticker":"${tickerLower}"`)) continue;
-    const f = JSON.parse(line);
-    if (f.filing_type === '10-K') matches.push(f);
-  }
-
-  if (year) {
-    matches = matches.filter(f => f.period.startsWith(year));
-  }
-
-  if (matches.length === 0) {
-    return res.json({ results: [], message: `No filings found for ticker "${ticker}"${year ? ` in year ${year}` : ''}` });
-  }
-
-  // Limit to first 2 filings to keep token budget reasonable
-  matches = matches.slice(0, 2);
-
-  const results = [];
-  const MAX_TEXT_LENGTH = 15000;
-
-  for (const filing of matches) {
-    let text = filing.text;
-
-    // If a search query is provided, find relevant sections
-    if (q) {
-      const queryTerms = q.toLowerCase().split(/\s+/);
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const scored = sentences.map((s, i) => {
-        const lower = s.toLowerCase();
-        const score = queryTerms.reduce((sum, t) => sum + (lower.includes(t) ? 1 : 0), 0);
-        return { s, i, score };
+console.log('[SEC] Building search index...');
+const lines = readFileSync(textIndexPath, 'utf-8').trim().split('\n');
+let chunkId = 0;
+for (const line of lines) {
+  const filing = JSON.parse(line);
+  // Split on double-newlines (paragraph boundaries) or fall back to ~500 word windows
+  const paragraphs = filing.text.split(/\n{2,}/);
+  let buf = '';
+  for (const para of paragraphs) {
+    buf += (buf ? '\n\n' : '') + para;
+    if (buf.split(/\s+/).length >= 300) {
+      chunks.push({
+        id: chunkId++,
+        ticker: filing.ticker,
+        company: filing.company,
+        period: filing.period,
+        filing_date: filing.filing_date,
+        filing_type: filing.filing_type,
+        accession: filing.accession,
+        text: buf,
       });
-
-      const relevant = scored
-        .filter(x => x.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 30);
-
-      if (relevant.length > 0) {
-        const contextSentences = new Set();
-        for (const r of relevant) {
-          for (let j = Math.max(0, r.i - 2); j <= Math.min(sentences.length - 1, r.i + 2); j++) {
-            contextSentences.add(j);
-          }
-        }
-        const sortedIdxs = [...contextSentences].sort((a, b) => a - b);
-        text = sortedIdxs.map(i => sentences[i]).join(' ');
-      }
+      buf = '';
     }
-
-    if (text.length > MAX_TEXT_LENGTH) {
-      text = text.substring(0, MAX_TEXT_LENGTH) + '... [truncated]';
-    }
-
-    results.push({
+  }
+  if (buf.trim()) {
+    chunks.push({
+      id: chunkId++,
       ticker: filing.ticker,
       company: filing.company,
       period: filing.period,
       filing_date: filing.filing_date,
+      filing_type: filing.filing_type,
       accession: filing.accession,
-      text
+      text: buf,
     });
   }
+}
+miniSearch.addAll(chunks);
+console.log(`[SEC] Indexed ${chunks.length} chunks from ${lines.length} filings`);
 
-  console.log(`[SEC] Returning ${results.length} results`);
-  res.json({ results });
+// ---------------------------------------------------------------------------
+// GET /sec/search — Full-text search API (MiniSearch powered)
+// ---------------------------------------------------------------------------
+router.get('/search', (req, res) => {
+  const { ticker, year, q, filing_type, limit } = req.query;
+  console.log(`[SEC] GET /sec/search ticker=${ticker} year=${year} q=${q} filing_type=${filing_type}`);
+
+  const maxResults = Math.min(parseInt(limit) || 20, 50);
+
+  // If no query, fall back to listing chunks filtered by ticker/year
+  if (!q) {
+    let filtered = chunks;
+    if (ticker) filtered = filtered.filter(c => c.ticker === ticker.toLowerCase());
+    if (year) filtered = filtered.filter(c => c.period.startsWith(year));
+    if (filing_type) filtered = filtered.filter(c => c.filing_type === filing_type);
+    const results = filtered.slice(0, maxResults).map(c => ({
+      ticker: c.ticker, company: c.company, period: c.period,
+      filing_date: c.filing_date, filing_type: c.filing_type,
+      accession: c.accession, text: c.text.substring(0, 2000),
+    }));
+    return res.json({ results, total: filtered.length });
+  }
+
+  // Build MiniSearch filter from optional params
+  const filter = (result) => {
+    if (ticker && result.ticker !== ticker.toLowerCase()) return false;
+    if (year && !result.period.startsWith(year)) return false;
+    if (filing_type && result.filing_type !== filing_type) return false;
+    return true;
+  };
+
+  const hits = miniSearch.search(q, { filter });
+  const results = hits.slice(0, maxResults).map(hit => ({
+    score: hit.score,
+    ticker: hit.ticker,
+    company: hit.company,
+    period: hit.period,
+    filing_date: hit.filing_date,
+    filing_type: hit.filing_type,
+    accession: hit.accession,
+    text: hit.text.substring(0, 2000),
+  }));
+
+  console.log(`[SEC] Query "${q}" → ${hits.length} hits, returning ${results.length}`);
+  res.json({ results, total: hits.length });
 });
 
 // GET /sec — Filing list

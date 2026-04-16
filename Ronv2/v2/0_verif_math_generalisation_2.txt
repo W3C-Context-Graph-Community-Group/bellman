@@ -1,0 +1,76 @@
+Tłumaczenie na angielski (tylko teksty, matematyka bez zmian):
+
+Operational Issue – Dark Fraction Theorem (edge cases after generalization)
+
+We stay with the current precise version (f, m, r in the ranges as before).
+
+Input (extreme but legal):
+f ∈ ℕ≥1
+m ∈ ℕ≥1
+r ∈ {0, 1, ..., n} where n = f × m
+
+Operations: exactly the same as in the previous note
+(n = f×m → ball = sum C(n,k) from k=0 to r → total = 2^n → δ = 1 − ball/total)
+
+Output: δ ∈ [0,1) as a rational number
+
+Checked edge cases (all legal, calculated exactly):
+
+Smallest possible boundary
+f=1, m=1, r=0 → n=1
+ball=1, total=2
+δ = 0.5 (half of the configurations are dark)
+
+Smallest boundary + full verification
+f=1, m=1, r=1 → n=1
+ball=2, total=2
+δ = 0.0 (zero darkness)
+
+Original single facet (f=3) + we verify nothing
+f=3, m=1, r=0 → n=3
+ball=1, total=8
+δ = 0.875
+
+Original single facet + full verification
+f=3, m=1, r=3 → n=3
+ball=8, total=8
+δ = 0.0
+
+More variables, one facet, zero verification
+f=1, m=5, r=0 → n=5
+ball=1, total=32
+δ = 0.96875
+
+More variables, one facet, full verification
+f=1, m=5, r=5 → n=5
+ball=32, total=32
+δ = 0.0
+
+Intermediate case (f=2)
+f=2, m=1, r=1 → n=2
+ball=3, total=4
+δ = 0.25
+
+When does it break (with legal inputs)?
+Mathematically: never.
+
+In every legal point (f≥1, m≥1, 0≤r≤n):
+
+    n is always a positive integer
+    ball_volume is always an integer between 1 and 2^n
+    δ is always a rational number in the interval [0, 1)
+    the sum C(n,k) and the power 2^n are well-defined
+
+The only moment when the formula stops making sense (breaks):
+r < 0 or r > n → then ball_volume is either incorrectly defined or δ comes out negative or >1 (but this is already outside the legal input range, so it does not apply)
+
+f=0 or m=0 → n=0, and 2^0=1 and sum C(0,0)=1, but δ=0 – however f=0 and m=0 are excluded by definition (ℕ≥1)
+
+Summary of the core after edge cases:
+The algorithm is fully robust against all extreme legal values.
+
+    When r=0 we get maximum darkness (1 − 1/2^n)
+    When r=n we always get δ=0 (full verification completely eliminates darkness)
+    For f=1 it reduces to the classic Hamming case with one facet per variable
+
+All numbers are accounting-correct – zero errors, zero exceptions in the legal range.

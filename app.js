@@ -68,6 +68,11 @@ app.get('/report', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'report.html'));
 });
 
+// Dark fraction calculator
+app.get('/calculator', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'calculator', 'index.html'));
+});
+
 // SEC filings browser
 app.use('/sec', secRoutes);
 
